@@ -1,0 +1,43 @@
+### Labels, selectors y anotations
+Usaremos para esta seccion un tomcat.yaml
+
+### labels
+a traves de los labels se realizan muchos tipos de relaciones entre objetos.
+labels = propiedad : valor
+labels:
+    estado: "desarrollo"
+
+$ kubectl get pod tomcat --show-labels --> ver las etiquetas que tiene un determinado pod
+
+### modificar labels
+$ kubectl label --> comando de kubectl para modificar labels
+$ kubectl label pod tomcat responsable=juan --> agregando una etiqueta. no aceptan espacios en blanco
+$ kubectl label --overwrite pod/tomcat estado=test --> modificar sobreescribiendo una etiqueta, en este caso cambiamos la etiqueta desarrollo a test
+$ kubectl label pod/tomcat responsable-     --> borrando una etiquita, en este caso barramos el responsable. es indispensable que para borrar una etiqueta se coloque el nombre de esta y el simbolo -
+es mejor trabajar con la forma declarativa (dentro del arquivo yaml). ya que modificamos todo en el .yaml y simplemente hacemos el apply del archivo
+
+### Selectors
+muy importante para encontrar recursos. Es el objeto primario con el que se relacionan algunos de los componentes como los deployments y servicios.
+Los  selectors son condiciones que yo utilizo para encontrar objetos que tengan determinadas etiquetas. 1) poner etiquetas (labels) 2) buscarlas a partir de selectors
+vamos a utilizar 4 ficheros yaml:
+$ kubectl apply -f . --> aplicar todos los ficheros .yaml del directorio actual (dentro de la carpeta labels)
+$ kubectl get pods --show-labels -l estado=desarrollo --> selector -l para buscar las etiquetas estado=desarrollo
+$ kubectl get pods --show-labels -l estado==desarrollo,responsable==juan --> se pueden ir agregando condiciones (==,<=,>=,!=) con una , pero todo debe estar junto, si hay un espacio no corre el comando
+$ kubectl get pods --show-labels -l responsable!=juan --> todos los responsables que no sean juan
+
+### trabajar mediante conjuntos === potenteeee
+$ kubectl get pods --show-labels -l 'estado in(desarrollo)' --> se coloca entre '' lo que se quiera buscar. En este caso busca todas las etiquetas que en su estado sea desarrollo.
+$ kubectl get pods --show-labels -l 'estado in(desarrollo,testing)' --> busqueda varia de una etiqueta con multiple valor.
+$ kubectl delete pods -l estado=desarrollo --> borra pods que tengan la etiqueta estado=desarrollo
+Cualquier comando de kubectl admite selectores
+
+### Anotaciones/anotations
+son similares a los labels (clave:valor) nos permiten mas que todo colocar comentarios y anotaciones, descripciones de componentes.
+usamos tomcat4.yaml
+annotations:
+    doc: "Se debe compilar con gcc"
+    adjunto: "ejemplo de anotacion"
+
+se da apply y se revisa
+no hay un comando especifico para ver o sacar las anotaciones asi que utilizamos el describe
+$ kubectl describe pod tomcat4
