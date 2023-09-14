@@ -54,3 +54,7 @@ $ kubectl get pod/nginx -o yaml --> obtiene la info del pod nginx en formato yam
 $ kubectl get pod/nginx -o json --> obtiene la info del pod nginx en formato json
 Si le damos una redireccion a un fichero nos puede ser util para su manipulacion:
 $ kubectl get pod/nginx -o yaml > f1.yaml
+
+### Eliminar pods
+$ kubectl delete pod nginx, pod1, podn --> eliminar pod o pods
+$ kubectl delete pod apache --grace-period=5 --> se le otorga un periodo de gracia de 5 segundos para que borre el pod apache
