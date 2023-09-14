@@ -58,3 +58,43 @@ $ kubectl get pod/nginx -o yaml > f1.yaml
 ### Eliminar pods
 $ kubectl delete pod nginx, pod1, podn --> eliminar pod o pods
 $ kubectl delete pod apache --grace-period=5 --> se le otorga un periodo de gracia de 5 segundos para que borre el pod apache
+$ kubectl delete pod apache --now --> eliminar pod inmediatamente sin esperar procesos pendientes.
+$ kubectl delete pods  apache --all --> elimina todos los pods
+
+### pods multicontenedores
+no deberia de haber contenedores con varios componentes dentro y que cumplieran un ciclo de vida distitnto. buenas practicas: 1 pod por contenedor
+ejemplo: 1 pod con nginx + componente de monitoring y ping cada 5 seg
+archvi multi.yaml
+$ kubectl apply -f multi.yaml
+$ kubectl logs multi --> nada mas nos muestra los logs del primer pod "web" no del resto
+$ kubectl logs multi -c frontal --> hay que especiicar el resto de pods para ver sus logs, se coloca el nombre del pod y se le pasa -c de container y el nombre del contenedor a ver
+$ kubectl logs -f multi -c frontal --> al agregar -f hacemos que los logs perduren y que se detengan con un ctrl + c
+$ kubectl exec multi -c frontal -- date --> ejemplo de exec para sacar la fecha y hora del contenedor frontal
+
+### Comando apply trabajando de forma declarativa
+hacemos un create con el nginx.yaml, hacemos un describe cuando el pod est´a rriba y todo ok. Si a este pod creado le queremos hacer un cambio lo podemos hacer con el comando apply directamente:
+que pas aquí? que con el create se establece que lo que esté creado (kubectl create) no se pueda modificar. Esto se corrige usando apply en vez de create, ya que apply permite mayor flexibilidad
+$ kubectl apply -f nginx.yaml
+al crear el pod mediante el apply, este pod se crea con la particularidad de poder personalizarlo y manejar sus componente. si vamos al fichero .yaml y lo editamos, podemos re-lanzarlo y este toma
+sus cambios sin tener que destruir el pod para esto.
+volvemos a dar apply y todo se actualizará
+$ kubectl get pod nginx -o yaml --> nos debe mostrar ahora los cambios que hemos hecho.
+en conclusion, utilizar apply en vez de create para crear los pods y demas componenetes en k8s para si poder tener la potestad de modificarlos dependiendo las prestaciones que necesitemos
+
+### como tratar a los pods cuando estos se estropean, da algun error, etc
+politica de rebote: Always (por default), OnFailure, Never
+descargamos los ficheros de ejemplo.
+1) restart-always.yaml
+$ kubectl apply -f restart-always.yaml
+$ kubectl get pods
+$ kubectl describe pod tomcat
+para el ejemplo, vamos a dañar al pod de tomcat, entramos en el con exec y lo detenemos con catalina.sh stop
+$ kubectl exec -it tomcat bash 
+# catalina.sh stop
+que pasó aquí? al detener el contendor con catalina.sh stop (propio de tomcat) el contenedor de viene abajo y nos saca de su entorno, pero al darle un get pods vemos el contendor nuevamente arriba...
+Esto pasa porque al tener una politica de de rebot que por defecto siempre es always, el container o pod que se baja tiende siempre a re desplegarse lo que hace que de nuevo esté arriba.
+Si hacemos un $ kubectl describe pod/tomcat vemos el estado tanto terminado del pod como lo que siguio luego que fue la levantada del nuevo estado con un restart count: 1
+Ahora como ejemplo modificamos el fichero del tomcat y lo colocaremos en OnFailure y probamos
+una vez desplegado el pod con apply y la politica modificada a OnFailure (cuando presente una falla) entramos a el con exec y lo detenemos catalina.sh stop.
+Al visualizar los pods con get pods encontramos que el pod está 0/1 y su status está completado, por qué? porque la politica de restauracion se ejecuta solamente cuando el pod tenga o presente una falla
+y nosotros lo unique que hicimos fue detenerlo mas no hacerle ver una falla.

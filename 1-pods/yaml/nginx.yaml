@@ -9,6 +9,7 @@ metadata: # determinadas propiedades
   labels: # etiquetas o tags
     zone: prod 
     version: v1
+    otra: mi_etiqueta
 spec: # caracteristica o especificaciones deseables que quiero que tenga este pod
   containers:
    - name: nginx   

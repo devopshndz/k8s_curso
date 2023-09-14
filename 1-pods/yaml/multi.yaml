@@ -1,0 +1,15 @@
+# pod con 2 servicios dentro
+# ejemplo: 1 pod con nginx + componente de monitoring y ping cada 5 seg
+apiVersion: v1
+kind: Pod
+metadata:
+  name: multi
+spec:
+  containers: # lista de 2 elementos, 2 contenedores web y frontal
+  - name: web
+    image: nginx
+    ports:
+    - containerPort: 80  
+  - name: frontal
+    image: alpine
+    command: ["watch", "-n5", "ping",  "localhost"] # comando watch que cada 5 segundos haga ping al localhost (nginx)

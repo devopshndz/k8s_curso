@@ -1,0 +1,13 @@
+# pod de politica de restart
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tomcat
+  labels:
+    app: tomcat
+spec:
+  containers:
+   - name: tomcat     
+     image: tomcat
+  # restartPolicy: Always # no haría falta colocarla pero se coloca para ilustracion
+  restartPolicy: OnFailure
