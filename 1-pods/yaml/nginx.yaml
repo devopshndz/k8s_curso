@@ -1,0 +1,15 @@
+# creando pod mediante manifest, imagen en dockerhub y traerla para usarla
+# hay que loguearse en dockerhub
+# el fichero está creado en formato yaml de clave valor
+
+apiVersion: v1 # version 
+kind: Pod # tipo de componente que quiero crear
+metadata: # determinadas propiedades
+  name: nginx # nombre
+  labels: # etiquetas o tags
+    zone: prod 
+    version: v1
+spec: # caracteristica o especificaciones deseables que quiero que tenga este pod
+  containers:
+   - name: nginx   
+     image: acertijo138/nginx:v1 # enlace con dockerhub

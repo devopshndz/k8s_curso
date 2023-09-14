@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2023-09-13T20:14:16Z"
+  labels:
+    version: v1
+    zone: prod
+  name: nginx
+  namespace: default
+  resourceVersion: "38761"
+  uid: 1cef3aed-6fb0-47d1-8204-d350ab264765
+spec:
+  containers:
+  - image: acertijo138/nginx:v1
+    imagePullPolicy: IfNotPresent
+    name: nginx
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-cgl6g
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: minikube
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - name: kube-api-access-cgl6g
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2023-09-13T20:14:16Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2023-09-13T20:14:31Z"
+    status: "True"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2023-09-13T20:14:31Z"
+    status: "True"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2023-09-13T20:14:16Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - containerID: docker://953c8e33501039a341b57d9e2ec510f4f2e1636e5bbd6f6a811f79ee283e653d
+    image: acertijo138/nginx:v1
+    imageID: docker-pullable://acertijo138/nginx@sha256:30d813acced4a54ab7cd8bf185aaf82a9b528becb638d63f2a391e0cf4762e6b
+    lastState: {}
+    name: nginx
+    ready: true
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2023-09-13T20:14:30Z"
+  hostIP: 192.168.49.2
+  phase: Running
+  podIP: 10.244.0.69
+  podIPs:
+  - ip: 10.244.0.69
+  qosClass: BestEffort
+  startTime: "2023-09-13T20:14:16Z"

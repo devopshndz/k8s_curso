@@ -1,0 +1,56 @@
+### pods
+
+unidad minima de trabajo de k8s
+son como un contenedor.
+lo ideal es tener 1 por por contenedor.
+no tienen estado, no se debe guardar info en ellos, son stateless.
+la idea del microservicio es que ese servicio sea autonomo y sea solo 1. por eso se debe tener 1 pod por contenedor. es mejor tener todo por separado para tener autonomia propia.
+
+### crear pod
+--> imperativo (parametros)
+$ minikube run --> crear un pod automatico y de forma interactiva con el cual podemos interactuar.
+$ kubectl run nginc1 --image=nginx --> crear un pod de nginx
+$ kubectl get pods --> listar todos los pods
+$ kubectl get pods -o wide --> listar nodos de forma mas detallado
+$ kubectl describe pod/nginc1 --> describe a fondo lo que tiene el pod nginc1. el comando describe se le debe pasar el componente a describir y el nombre de este para describirlo.
+
+
+### ejecutar comando contra los pods que estan corriendo. pod nginc1
+$ kubectl exec nginc1 -- ls --> aplicar el comando ls al pod nginc1
+$ kubectl exec nginc1 -it -- bash --> entrar en modo interactivo
+### ver logs de un pod
+$ kubectl logs apache --> ver logs de un determinado pod
+$ kubectl logs -f apache --> al pasarle el -f hacemos que los logs se queden fijados en la terminal y siga arrojando logs. tareas de debugin para comprobacion de utilizacion correcta.
+
+### probar el pod con kubectl proxy
+Al no tener nada de deployment y servicios lo podemos ver mediante un proxy a traves de un navegador web
+$ kubectl proxy --> abrir puerto por el que puedo preguntar por las caractirsticas del cluster y de las apps
+--> 127.0.0.1:8001   nos muestra todas las apis que puedo recorrer con un /<api> ===== 127.0.0.1:8001/api/v1/default
+
+### probar el pod con un servicio
+$ kubectl expose pod nginc1 --port=80 --name=nginx-svc1 --type=LoadBalancer --> exponiendo un pod como servicio
+kubectl get pods y luego kubectl get svc para ver los puertos del pod creado.
+$ minikube ip --> para conocer la ip de minikube y establecer conexion
+>>> 192.168.49.2:31415
+
+### port worwarding: mapear un puerto local con un puerto remoto, port forward es un recurso general que se utiliza en muchas redes y k8s lo tiene
+$ kubectl port-forward nginc1 9999:80 --> creado un port-forward a nivel local. el 9999 es un puerto local de mi pc
+abrimos un navegador y colocamos 127.0.0.1:9999 o localhost:9999
+
+### ver los pods desde un nodo del cluster
+conectarnos al nodo de k8s
+$ minikube ssh --> accedemos al cluster de minikube
+ya podemos ver los pods como lo que son, contenedores:
+$ docker ps
+
+# crear un pod por medio de un fichero yamle
+$ kubecetl create -f nginx.yaml --> si tenemos un fichero .yaml podemos crear un compomenten o un pod a traves de este. el -f nos indica la ruta o el fichero que vamos a utilizar.
+
+# comprobar que el pod creado con un .yaml funciona con un servicio
+$ kubectl expose pod nginx --name=nginx-svc --port=80 --type=LoadBalancer
+
+# generar o extraer la configuracion de un pod en json o yaml, tambien sirve para modificar o recomponer un objeto
+$ kubectl get pod/nginx -o yaml --> obtiene la info del pod nginx en formato yaml
+$ kubectl get pod/nginx -o json --> obtiene la info del pod nginx en formato json
+Si le damos una redireccion a un fichero nos puede ser util para su manipulacion:
+$ kubectl get pod/nginx -o yaml > f1.yaml
