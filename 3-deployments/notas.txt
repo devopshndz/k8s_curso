@@ -1,0 +1,82 @@
+### Deployments y workloads
+workloads= en k8s, es algo que yo estoy utilizando para desplegar contenedores, ejemplo, los pods. existen varios tipos de formas de desplegar estos pods:
+
+deployments= son los componentes que van a envolver a los pods y que le dan ciertas caracteristicas (hacer updates y rollback de manera sencilla, ver que funcionen correctamente)
+replicasets= encargados de hacer los escalados de los pods cuando sea necesario. mantiene a los pods funcionando. (replicationControllers son lo mismo)
+statefulset= encargados de gestionar el despliegue y escalado de los pods y garantiza el oprden y la unicidad de esos pods.
+daemonset= asegura que todos los nodos de un cluster van a tener una copia de un pod. si yo añado un nuevo nodo dentro del cluster, este componente va a asegurarse de que este nodo tenga al menos 1 pod dentro
+job= componente que va a crear uno a varios pods y se van a asegurar que un determinado numero de ellos se terminen satisfactoriamente. esos pods terminen o funcionen correctamente.
+cronjob= lo mismo que el jop pero programado.
+
+Ver todos estos workloads como "envolturas" que van a tomar los pods y harán que se ejecuten de determinada manera siempre teniendo en cuenta tener el estado ideal que yo he decidido.
+
+controllers= tienene como trabajo estar controlando continuamente que el cluster está correcto y que los pods y los workloads que yo he definido se adaptan correctamente a lo que yo quiero 
+
+##### Deployments
+un container tiene que ir dentro de un pod. por lo general los asocian a ambos como lo mismo.
+los pods no escalan. No se recuperan ante caida, no hay una funcionalidad para decir que cuando se caiga un pod arranque otro. No son nada buenos para hacer update y rollback de la app.
+que hacer?
+poner los pods dentro de un deployment.
+Es como una burbuja que engloba unas caracteristicas entre ellos los pods que debe de tener. los deployments permiten update y rollbacks, recuperacion ante caidas y tambien permiten el escalamiento.
+los deployment generan tambien replicas para tener un estado ideal de los pods.
+al hacer un deployment tambien se crea otro componente llamado replicaset, el cual gestiona las replicas y que los pods no se caigan.
+1 deployment --> 1 replicaset y pods (contenedores)
+
+#### crear deployment modo imperativo (comando)
+$ kubectl create deployment --> crear deployment de modo imperativa
+$ kubectl create deployment apache --image=httpd --> ejemplo de deployment apache
+esto crea un deployment, pero recordar que no solo es un deployment que se crea, crea los pods y crea su replicaset
+$ kubectl get deploy --> lista los deployments
+$ kubectl get pods
+$ kubectl get rs -->  listar los replicaset
+a cada uno de estos puedo colocarle -o wide para verlo mas especifico
+
+### ver informacion de los deployment
+$ kubectl describe deploy --> con describe podemos tambien describir todo lo que tiene un deployment.
+$ kubectl describe deploy apache --> describir el deploy apache.
+tambien
+$ kubectl get deploy apache -o yaml --> 
+ver la info en salida yaml, recordar tambien que se puede con json. Vemos la metadata que tiene todo el conmdumio de los deployment. el spec. el status, todo se puede sacar
+
+### crear deployment de forma declarativo con fichero yaml
+vamos a utilizar el fichero deploy_nginx.yaml
+$ kubectl apply -f deploy_nginx.yaml --> siempre el apply
+pod-template-hash es un selector que se agrega automaticamente cuando se crea el deployment y es un dato muy util para identificar los componenter.
+
+$ kubectl get pods -l app=nginx --> buscar un por por medio de un selector y se filtren solo los pods con dicha etiqueta.
+$ kubectl get pods -l app=nginx -L app --> al pasarle la -L app, hacemos que se cree una columna llamada APP y que contenga esas etiquetas nginx a parte, esto se usa para tener mas declaraciones en pantalla
+$ kubectl get pods -L app --> si quitamos el selectro -l nos va a mostrar todos los pods en general y la columna APP con el nombre de las app que esten declaradas como etiquetas (apache, nginx)
+
+### ver multiples elementos:
+$ kubectl get deploy,pods,rs --> se puede pasar en un mismo comando todos los elementos que deseamos ver mediante un get, se deben colocar uno despues de otro separados con una , pero juntos: pods,rs
+
+### comando edit
+hemos utilizado el comando apply para hacer modificaciones de los elementos declarados.
+Si editamos el .yaml y le damos apply nuevmanete se actualiza el elemento que hayamos editado. ejemplo, subamos a 3 el numero de replicas del pod.
+Lo ideal es que editemos todo desde el fichero, pero se puede hacer con edit el modificar el fichero:
+$ kubectl edit deploy <nombre_deploy> --> comando para usar edit en un fichero, esto abre el archivo para poder editarlo.
+intenté hacerlo y no salio jajajaj pero me parece una manera muy charra, mejor es ir al fichero y editarlo alli, guardar cambios y aplly.
+
+### escalar un deployment. tener mas replicas de las que ya tiene.
+$ kubectl scale deploy nginx-d --replicas=5 --> escalar replicas de un deployment. en este ejemplo voy a escalar a 5 replicas.
+
+podemos tambien escalar mediate la accion de una etiqueta, esta debe ser un numero dentro de un string "1" por ejemplo, en el .yaml podemos crear el label v : "1"
+apply...
+$ kubectl scale deploy -l v=1 --replicas=10 --> estamos haciendo un escalado de 10 pods basandonos en un selector que busque la etiqueta v con valos 1.
+
+podemos desescalat tambien!!! hacemos lo mismo con el numero de pods que queramos:
+$ kubectl scale deploy nginx-d --replicas=2
+$ kubectl scale deploy -l v=1 --replicas=2
+
+### consideraciones:
+el escalado esta basado en un deployment y a elemento similares a este.
+Se tiene que tener muy claro en QUE se tiene que escalar, porque hablar de escalado es hablar de copia o clonacion de un pod en otros pods.
+ejemplo, app web frontal, apache y web.
+Si se hacen replicas de por ejemplo 3 replicas, el cliente va a poder ingresar a estas replicas, sea cual sea.
+pero se esta creando un clon, se esta creando por ejemplo 3 contenedores, si tienen volumen, todas las replicas se conectan al volumen. se clona todo lo que tenga. todo ok.
+pero si es una base de datos ejemplo de mysql. mysql solo soporta 1 sola instancia de db, si se hace una replica de esta, tenemos un problema, tengo 2 db clonadas, esto es muy problematico para el guardado de info.
+no se puede replicar  una db que solo permite 1 sola instancia. 
+
+kubernetes no entiendo lo que hay dentro de los pods, el gobierna todos sus elementos.
+BUENA PRACTICA: clonar aquellas cosas que no tengan estado o que no tengan problemas al copiarlas, clonarlas o replicarlas, y no podremos clonar aquellas que si la tengan, ejemplo, una db. hay que buscar
+para estos casos que db si permiten hacer estas cosas. en sistensis, documentarse de que cosas hayq ue replicar y que cosas no.

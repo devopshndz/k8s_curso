@@ -1,20 +1,24 @@
+# fichero de deployment
+
 apiVersion: apps/v1 # i se Usa apps/v1beta2 para versiones anteriores a 1.9.0
-kind: Deployment
+kind: Deployment # tipo deployment, para que k8s entienda el objeto que va a trabajar.
 metadata:
-  name: nginx-d
-spec:
-  selector:   #permite seleccionar un conjunto de objetos que cumplan las condicione
-    matchLabels:
+  name: nginx-d # el nombre del deployment, no es un pod, pero hay que definirlo.
+  labels:
+    app: nginx
+    v: "1" # le agregamos el label de app para tenerlo identificado
+spec: # spec del deployment, ojito
+  selector: #permite seleccionar un conjunto de objetos que cumplan las condicione
+    matchLabels: # localizar objetos con etiquetas, en este caso con etiqueta app: nginx, va a buscar los contenedores que se ejecutaran en el deployment, ojo esto no es un label, esto busca las labels
       app: nginx
-  replicas: 2 # indica al controlador que ejecute 2 pods
-  template:   # Plantilla que define los containers
+  replicas: 3 # indica al controlador que ejecute 2 pods, siempre va a tener 2 pods al arranque de este deployment. Si se cae 1 pod, se creara otro automaticamente.
+  template: # Plantilla que define los containers
     metadata:
       labels:
-        app: nginx
-    spec:
+        app: nginx # etiqueta nginx para los contenedores
+    spec: # spec de los contenedores, ojito no confundir.
       containers:
-      - name: nginx
-        image: nginx:1.7.9
-        ports:
-        - containerPort: 80
-
+        - name: nginx
+          image: nginx:1.7.9
+          ports:
+            - containerPort: 80
