@@ -98,3 +98,5 @@ Ahora como ejemplo modificamos el fichero del tomcat y lo colocaremos en OnFailu
 una vez desplegado el pod con apply y la politica modificada a OnFailure (cuando presente una falla) entramos a el con exec y lo detenemos catalina.sh stop.
 Al visualizar los pods con get pods encontramos que el pod está 0/1 y su status está completado, por qué? porque la politica de restauracion se ejecuta solamente cuando el pod tenga o presente una falla
 y nosotros lo unique que hicimos fue detenerlo mas no hacerle ver una falla.
+
+con Never, lo que se hace es que cuando exista un error una falla o simplemente se baje el pod, este no va a volver a subirse mas.
