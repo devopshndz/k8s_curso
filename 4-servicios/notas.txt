@@ -1,0 +1,130 @@
+### Servicios
+Nos dan la posibilidad de conectarnos de forma externa con nuestros pods.
+Ejemplo: 1 deployment con 4 replicas de pods apache, hay clientes que quieren acceder a este deployment.
+como conecto el cliente con el deployment?
+el servicio es un componente intermedio que actua entre el cliente y el deployment para ofrecer conectividad entre estos.
+el servicio ofrece una ip fija, un nombre fijo y un puerto fijo para mi deployment.
+El servicio hace una lista dinamica de todos los pods existentes y se los ofrece al cliente, cuando esste ultimo haga una peticion, por un load balancer se conecta.
+varios tipos de servicios:
+1) clusterIP: hace que un deployment sean accesibles solamente dentro del cluster, ejemplo las bases de datos o el backend (solo necesitanq ue otros pods accedan a estos por ejemplo) 
+contiene ip, nombre, puerto
+2) NodePort: hace que sea accesible desde fuera del cluster. tendrá un acceso externo o una ip externa el cual será el NodePort
+contiente ip, nombre, puerto y nodeport
+3) LoadBalancer: similar al NodePort, solo es accesible fuera del cluster pero integrado con otros productos de terceros como amazon, azure, gcp, etc.
+
+Como detecta el servicio a los distintos pods que s evan creando?
+Lo hace a trase del address. Por medio de un selector, ej: app=ejemplo, busca los pods que esten etiquetados con este dato y cuando comprueba que a entrado un nuevo pod con esta caracteristica lo asigna
+a este servicio. si el pod desaparece por lo que sea, el servicio lo quita de la lista dinamica.
+
+### Crear servicios
+### NodePort
+Se controla de la misma manera que un load balnacer, solo que este ultimo se conecta con el proveedor externo de nube misntras el NodePort no.
+$ kubectl create deployment apache1 --image=httpd --> creamos deploy de apache1
+$ kubectl get all --> visualiza todo lo que hay en el namespace.
+$ kubectl expose deploy apache1 --port=80 --type=NodePort --> exponemos el deploy apache1 con puerto 80 (puerto interno por el que está escuchando el node) y type=NodePort.
+    Nota: se debe especificar el type, si no se especifica, por defecto lo toma como clusterIP.
+
+$ kubectl get svc --> lista los servicios que hemos creado
+preguntamos con minikube ip la ip de nuestro nodo (si trabajamos en un entorno profesional sería el nodo de la maquina) y le colocamos el puerto que el el sistema le colocó al servicio
+192.168.49.2:30112
+
+nota: a veces minikube no funciona bien cuando creamos servicios. si hacemos minikube service list y a nuestro deployment no le aparece url es que no se adjunto el servicio como es debido.
+      esto es debido a que no está del todo optimizado en docker. para solucionar esto momentaneamente se debe crear un tunel de servicio:
+      $ minikube service apache1 --url
+      esto crea un tunel con el servicio y la ip, la pegamos en el navegador y nos da acceso al servicio.
+
+### Escalar un deploy, como reacciona un servicio
+Como sabe el servicio a donde tiene que ir?:
+kubectl describe svc apache1 --> hacemos un describe del servicio apache1 para conocer los endpoints, tambien si hacemos un kubectl get pods -o wide, apache1 se muestra asociado a la ip del pod.
+10.244.0.114:80
+el endpoints del servicio apache1 es la conexion con el pod, por eso se muestra como endpoint la ip del pod.
+que pasa cuando el deploy escala a 5 pods? lo que debe pasar es que la lista de endpoints se va a actualizar
+$ kubectl scale deploy apache1 --replicas=3
+$ kubectl get pods -o wide
+$ kubectl describe svc apache1 --> nos va a mostrar que en el endpoints va a tener las direciones ip que aparecen en los pods creados en replica
+De mesta forma se nos muestra como es el dinamismo del servicio, al escalar o desescalar, las direcciones ip de los nuevos pods serán pasadas como endpoints en en servicio, cada que hacemos
+un describe en el servicio, nos muestra los los endpoints de los nuevos pods replicados, si se desescalan pasa los mismo, muestra los endpoints de solo los pods usados.
+si eliminamos un pod que está siendo escalado, $ kubectl delete pod <el pod>, por el escalamiento se borra el endpoint del pod y se coloca el endpoint del nuevo pod que se crea automaticamente 
+el deploy siempre va a querer seguir las reglas que nosotros le demos, y el servicio siempre se va a adaptar a lo no que el deploy tenga.
+
+### Crear un servicio de tipo loadBalancer
+Es el mismo que el NodePort pero funciona dentro de un cloud (aws, azure, gcp)
+Solo tiene sentido crearlo en un entorno de esto.
+$ kubectl create deployment apache2 --image=httpd
+$ kubectl expose deploy apache2 --port=80 --type=LoadBalancer
+$ kubectl get svc -l app=apache2
+nos mostraría los detalles del servicio apache2, si lo hacemos en una nube por ejemplo de aws el EXTERNAL-IP debería tener la ip externa de aws, ahora mismo en minikube no se puede hacer.
+pero funciona totalmente igual que si estuvieramos creando un servicio NodePort
+
+### Crear un servicio de tipo clisterIP. Redis a redis.
+los servicio de tipos clisterIP, el servicio solo es accesible desde dentro del propio cluster, son servicio privados, si nosotros no colocamos type= el sistema toma como predeterminado este tipo.
+ej: vamos a crear un redis (db de memoia) y tendremos otro contenedor con el cliente redis (2 deployment) vamos a conectarnos por medio de cluster id para que el cliente pueda pedir algo al redis.
+$ kubectl create deployment redis-master --image=redis --> creamos un deploy de redis que sera el maestro
+$ kubectl get deploy
+$ kubectl get pods
+creamos el cliente
+$ kubectl create deployment redis-cli --image=redis --> creamos el deploy de redis que sera el cliente por el cual nos comunicaremos con el maestro redis.
+$ kubectl get deploy
+$ kubectl get pods
+nos conectamos por medio de un servicio:
+$ kubectl expose deploy redis-master --port=6379 --type=ClusterIP --> exponemos el deploy de redis master como ClusterIP (no hace falta colocar el ClusterIP, ya es predeterminado)
+$ kubectl get svc
+para acceder desde el redis cli:
+$ kubectl get pods --> y tomamos el nombre del redis-cli: redis-cli-55f45578ff-qzxt9
+lo siguiente es acceder
+$ kubectl exec redis-cli-55f45578ff-qzxt9 -it -- bash
+estamos ingresando a la maquina de redis-cli y dentro de la maquina de redis-cli, es que vamos a ingresar a redis-master mediante los comandos de redis:
+$ redis-cli -h redis-master --> me quiero conectar desde el redis-cli a una maquina su host (-h) es redis-master (el nombre del servicio actua como nombre de maquina)
+>   queda conectado a la maquina de redis-master
+si queremos trabajar desde dentro de redis, podemos hacer el siguiente ejemplo:
+set v1 10 --> estamos creando una clave valor v1 = 10
+OK
+$ get v1 
+"10"
+y asi trabajamos conectandonos con servicios de type ClusterIP
+
+### PRECTICA: SERVICIO DE FORMA DECLARATIVA
+dockerfile > imagen docker > despliegue > servicio
+dir web: contiene una pagina web sencilla, se crea desde el dockerfile
+deploy_web.yaml > crear del despliegue
+web-svc.yaml > crear el servicio
+completo.yaml > crear todo en un solo fichero
+
+inicio:
+$ docker build -t apasoft/web . --> construimos la imagen
+$ docker images
+vamos a utilizar el completo.yaml
+$ kubectl apply -f completo.yaml 
+$ kubectl get svc
+y vemos el servicio arriba con:
+$ minikube service web-svc --url --> recordemos que no podemos ver directamente desde minikube el servicio con la ip y el puerto, se debe hacer un tunel debido al problema en las mac
+todo OK, pagina arriba
+
+### endopoints
+El endponint se puede considerar como el objeto que se asocia a una determinada ip y por lo tanto a un determinado pod, hace un tracking de ese pod a traves de su ip, por lo tanto ese 
+endpoint se asocia a un servicio y mantiente la relacion entre el servicio y el pod.
+si vemos los endponitn que tiene el anterior despliegue
+$ kubectl describe svc web-svc
+$ kubectl get endpoints --> obtener todos los endpoints en general
+$ kubectl get endpoints web-svc -o wide --> obtener info mas detallada de los endpoints del servicio web-svc
+$ kubectl describe endpoints web-svc --> mas info
+$ kubectl get endpoints web-svc -o yaml --> nos trae mucha mas info relevante
+
+### Variables de entorno  del servicio en los pods
+como cuando se crea un servicio dentro de cada pod se activan una ciertas variables de entorno que se integran con kubernetes
+entramos en un pod
+$ kubectl get pods
+tomamops el nombre del pod y accedemos a el 
+$ kubectl exec -it web-d-7fdd57464-7xx78 -- bash
+# env | grep WEB --> buscamos las variables de entorno env que comiencen con WEB
+WEB_SVC_PORT_80_TCP_PROTO=tcp
+WEB_SVC_SERVICE_HOST=10.102.43.15
+WEB_SVC_PORT_80_TCP_PORT=80
+WEB_SVC_PORT_80_TCP_ADDR=10.102.43.15
+WEB_SVC_PORT_80_TCP=tcp://10.102.43.15:80
+WEB_SVC_PORT=tcp://10.102.43.15:80
+WEB_SVC_SERVICE_PORT=80
+
+Todas estas variables son las variables que hemos utilizado en el servicio. si utilizamos un:
+$ kubectl describe svc web-svc
+nos podemos dar cuenta que WEB_SVC_SERVICE_HOST=10.102.43.15 hace referencia a IP:10.102.43.15 del servicio. son variables que se van almacenando y podemos ir utilizandolas.
