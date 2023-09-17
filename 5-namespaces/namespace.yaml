@@ -1,0 +1,7 @@
+# archivo basico de creacion de un namespace
+apiVersion: v1
+kind: Namespace # tipo namespace
+metadata:
+  name: dev1 # nombre
+  labels:
+     tipo: desarrollo # etiqueta tipo : desarrollo

@@ -1,0 +1,94 @@
+### Namespaces
+espacios de nombre o particiones para poner objetos dentro de mi k8s. Nos ayuda a atrabajar en distintos espacios de trabajo por ejemplo, dev, test y prod, y tener configuraciones distintas.
+Se recomienda trabajar en k8s separados pero puede servirnos trabajar en 1 k8s con distintos namespaces, aunque no sea la mejor practica o la mas adecuada.
+division logica dentro del cluster que nos ayuda dividir los objetos en distintas zonas.
+
+### ver los namespaces: se puede usar la abreviatura ns
+$ kubectl get namespaces
+$ kubectl get ns
+nos muestra una serie de namespace, por defecto: default, es donde se crea todo.
+el kube-system es el namespace en donde se crea todo los objetos de configuracion de k8s. el kube-public es un ns que tambien se crea en el sistema y es publico para los usuarios, y cosas temporales de k8s
+kubernetes-dashboard, se activa cuando activo el dashboard.
+
+# obtener info de un ns en particular
+$ kubectl get ns default --> muestra el ns default
+$ kubectl describe ns default --> muestra el ns default de forma mas detallada
+$ kubectl get pods -n kube-system --> ver todos los objetos o pods de un determinado ns, -n es para pasar el nombre del ns a buscar
+no esta de mas decir que con solo get pods podemos ver todo esto ultimo pero que esto ultimo es un filtrado de dichos pods en un determinado ns
+
+# crear y borrar ns
+$ kubectl create ns n1
+$ kubectl create namespace n1 --> ambas formas son validas para crear namespace
+$ kubectl describe ns n1 --> si se a creado desde ya, no nos va a mostrar info porque no tiene nada por dentro. 
+crear de forma declarativa: namespace.yaml
+$ kubectl apply -f namespace.yaml --> aplicamos el namespace
+$ kubectl describe ns dev1
+para borrar ns:
+$ kubectl delete ns n1 --> borrar el ns n1, el primero que creamos
+
+# crear objetos dentro de un ns
+debemos colocar el nombre del ns al cual vamos a desplegar objetos.
+utilizaremos un fichero deploy_elastic.yaml para el ejercicio y lo usaremos en el ns dev1
+$ kubectl apply -f deploy_elastic.yaml --namespace=dev1 --> creamos el deploy_elastic
+$ kubectl apply -f deploy_elastic.yaml -n=dev1 --> otra forma de hacer un despliegue en el ns dev1, se pasa solo el nombre del ns con -n=dev1
+para borrar este deploy hay 2 formas:
+$ kubectl delete deploy elastic -n dev1  
+$ kubectl delete deploy elastic --namespace dev1
+es valido utilizar --namespace dev1 o -n dev1
+para ver los pods, los deploys, los servicios, o todo, se debe colocar el ns para ver lo que hay dentro, ejemplo:
+$ kubectl get pods --namespace=dev1 / --namespace dev1
+$ kubectl get pods -n=dev1 / -n dev1
+$ kubectl get all -n=dev1 / -n dev1
+$ kubectl get deploy -n dev1 --> los deploys del dev1
+$ kubectl describe deploy elastic -n dev1
+$ kubectl get rs -n dev1
+para que sea mas facil, utilizar siempre el -n=dev1 o -n dev1
+$ kubectl describe pod elastic-6657d98755-m99kn -n dev1
+
+### hacer un ns predeterminado
+debemos implementar el config del minikune o del cluster en el que estemos trabajando
+$ kubectl config view --> ver el contenido de config
+$ kubectl config set-context --current --namespace=dev1 --> con este comando hacemos que se cambie el contexto actual del ns utilizado, pasamos de default a utilizar el dev1
+así al hacer un config view ya nos muestra que el namespace por defecto es el dev1
+esto para que sirve? si estamos trabajando constantemente en utilizar cosas de un determinado ns, podemos colocarlo por defecto y poder trabajar directamente allí como si este fuera el default
+ya no nos tocaría colocar el -n=dev1 para aplicar cosas en el ns, simplemente al colocar por ejemplo, kubectl get pods, esta sentencia se desplegará por defecto en el ns dev1
+
+## agregar limites de memoria y cpu a pods dentro de un ns
+usaremos limitex.yaml
+creamos un nuevo namespace = n1 (antes lo habiamos eliminado) otra cosa a tener en cuenta, para utilizar cosas en un ns, este debe estar creado.
+$ kubectl create ns n1
+$ kubectl apply -f limitex.yaml -n n1 --> aplicamos en el ns n1 el limitrange
+$ kubectl describe ns n1 --> describimos que tiene dentro el ns n1
+Si creamos un deploy dentro del ns, y le hacemos un describe a ese deploy nos encontraremos que ese deploy ya tendrá los limites que hemos establecido para los pods, y esto es imporntate a la hora
+de saber con que cantidad de recursos estan trabajando los pods y clusters que tenemos.
+para borrar los el limitrange:
+$ kubectl get limitrange
+$ kubectl delete limitrange recursos
+
+## Control de eventos en un ns
+todo lo que se genere en ns va a tener como finalidad ciertos eventos que se pueden ir controlando, como crear un pod.
+$ kubectl create ns desarrollo
+ver los eventos de este ns
+$ kubectl get event -n desarrollo --> ver los eventos del ns desarrollo, actualmente vacio
+$ kubectl run apache1 --image=https -n desarrollo --> crear un pod de apache1 dentro del ns desarrollo
+si ahora le doy un get event al ns desarrollo, esto es lo que nos mostrará con respecto al pod:
+LAST SEEN   TYPE      REASON      OBJECT        MESSAGE
+61s         Warning   Failed      pod/apache1   Error: ErrImagePull
+26s         Normal    BackOff     pod/apache1   Back-off pulling image "https"
+37s         Warning   Failed      pod/apache1   Error: ImagePullBackOff
+4s          Normal    Scheduled   pod/apache1   Successfully assigned desarrollo/apache1 to minikube
+4s          Normal    Pulling     pod/apache1   Pulling image "httpd"
+3s          Normal    Pulled      pod/apache1   Successfully pulled image "httpd" in 882.779875ms (882.805458ms including waiting)
+3s          Normal    Created     pod/apache1   Created container apache1
+3s          Normal    Started     pod/apache1   Started container apache1
+
+estos son los eventos que tengo ahora en el ns desarrollo
+De esta manera podemos ver los eventos que se estan realizando en el ns desarrollo
+ahora si nos interesa saber los eventos cuyo type es warning para ver los que estan peligrosos
+$ kubectl get events --field-selector type="Warning" -n desarrollo --> esta sentencia nos permite ver los eventos que tengan un campo selector de tipo "Warning" dentro del ns desarrollo
+$ kubectl get events --field-selector reason="Scheduled" --> que nos muestre los eventos programados
+
+$ kubectl get events -n desarrollo -w --> nos permite tener la pestaña abierta y que los eventos se vayan mostrando en tiempo realizando, como lo haciamos con los logs
+$ kubectl get events --field-selector reason="Failed" -n desarrollo -w --> nos mostrara en tiempo real los eventos que fallen solamente 
+el -w es muy potente
+

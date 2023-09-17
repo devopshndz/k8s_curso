@@ -1,0 +1,114 @@
+### Rolling updates
+Como mantener nuestra aplicacion sin necesidad de que se apague
+Como son los updates? como usarlos? como es el proceso rolling (mantener pods nuevos y antiguos para que no se vea perdido de servicio), rollbacks.
+sustitucion del despliegue antiguo por uno nuevo
+
+### Rolling update: modificar la app
+cuando decido cambiar las caracteristicas de los container va a probocar que los pods de estos containers se destruyan y se desplieguen nuevamente.
+existon dos tipos de estretegia de rolling:
+RollingUpdate: va modificando los pods de manera evolutiva, poco a poco para que siempre haya al menos 1 pod arriba y así no provocar shoting-down en la aplicaicion.
+un update se produce cuando hay un cambio de propiedad inherente a los contenedores. Si le cambio el puerto o la label de un contenedor, ojo, contenedor, es lo que puede producir un update.
+
+vamos a utilizar para este ejemplo el  fichero deploy_nginx_ori.yaml
+$ kubectl apply -f deploy_nginx_ori.yaml
+una vez desplegado podemos verlo con un get pods o un describe deploy nginx-de
+para hacerle un update vamos a hacerle un cambio de imagen del container
+$ kubectl rollout history deploy nginx-d --> mostrar el historial de rollout que a tenido el deploy nginx-d
+REVISION  CHANGE-CAUSE
+1         <none>
+
+$ kubectl rollout history deploy nginx-d --revision=1 --> para mas detalle centrandose en la revision 1
+Pod Template:
+  Labels:       app=nginx
+        pod-template-hash=f7599d4c # este hash de aqui coincide con el de la replica set de dicho deployment, va a cambiar cuando hacemos update
+  Containers:
+   nginx:
+    Image:      nginx:1.7.9
+    Port:       80/TCP
+    Host Port:  0/TCP
+    Environment:        <none>
+    Mounts:     <none>
+  Volumes:      <none>
+
+editamos el fichero deploy_nginx_ori y cambiamos la imagen. Volvemos a ahcer el apply y vemos los pods con get pods
+Tambien podemos ver el history nuevamente
+$ kubectl rollout history deploy nginx-d
+REVISION  CHANGE-CAUSE
+1         <none>
+2         <none>
+
+$ kubectl rollout history deploy nginx-d --revision=2
+Pod Template:
+  Labels:       app=nginx
+        pod-template-hash=7f89586d87 # nuevo hash
+  Containers:
+   nginx:
+    Image:      nginx:1.17.8
+    Port:       80/TCP
+    Host Port:  0/TCP
+    Environment:        <none>
+    Mounts:     <none>
+  Volumes:      <none>
+
+$ kubectl get rs
+nginx-d-7f89586d87   5         5         0       3m19s  # el rs viejo
+nginx-d-f7599d4c     8         8         6       13m    # el rs nuevo
+
+### ejemplo 2 rolling update
+para el nuevo ejemplo de rolling update se va a modificar el fichero deploy_nginx_ori.yaml agregandole algunas especiciaciones de politica de escalado de pods y segundos al crear pods. revisar.
+creamos tambien un servicio para ver como se va a ver afectado. nginx-svc.yaml
+$ kubectl apply -f nginx-svc.yaml --> crear el servicio
+describe el nginx-svc para ver los endpoint
+$ kubectl apply -f deploy_nginx_ori.yaml --> crear el deploy
+
+En conclusion, con RollingUpdate hacemos que la transicion entre pods cuando se hace un cambio haga que la app no se caiga.
+
+### deshacer rollingupdate
+rollback, volviendo hacia atras.
+hacemos un cambio colocando una iamgen que no exista para que se cree una nueva revision. modificamos el fichero ori.yaml y aplly
+$ kubectl rollout status deploy nginx-d --> nos proporciona el status del deploy 
+con get pods nos muestra el erro de la imagen.
+$ kubectl rollout history deploy nginx-d
+$ kubectl rollout history deploy nginx-d --revision=4
+
+hacemos el rollback en la revision que queramos menos la 2
+$ kubectl rollout undo deploy nginx-d --to-revision=3 --> ralizamos un rollback en la revision 3
+si hacemos de nuevo un status:
+deployment "nginx-d" successfully rolled out
+y asi nos regresamos a una revision anterior.
+ojo: si hacemos un rollback en una revsion anterior, inmediatamente las revisiones posteriores a esa revision y en la que estaba quedan invalidas, ejemplo tengo revision 1,2,3,4
+voy a estoy en la 4, voy a pasar a la 2. la revision 3 desaparece.
+
+### estrategia recreate
+recreate: Directamente borra todos los pods de la version antigua y los sustituye por la nueva, en este caso si hay shoting-down
+usaremos el fichero deploy_nginx2.yaml
+apply
+hacemos get pods, y un describe al deploy
+$ kubectl describe deploy nginx-d
+y ahora nos sale que la estrategia ya no es rollingupdate sino de tipo recreate
+hacemos un cambio de la imagen y aplicamos
+NAME                      READY   STATUS              RESTARTS   AGE
+nginx-d-74b6b979f-5mkgc   0/1     ContainerCreating   0          1s
+nginx-d-74b6b979f-bzrmj   0/1     ContainerCreating   0          1s
+nginx-d-74b6b979f-g9jv8   0/1     ContainerCreating   0          1s
+nginx-d-74b6b979f-hj8mn   0/1     ContainerCreating   0          1s
+nginx-d-74b6b979f-kt9d2   0/1     ContainerCreating   0          1s
+nginx-d-74b6b979f-m9bdx   0/1     ContainerCreating   0          1s
+nginx-d-74b6b979f-prxnl   0/1     ContainerCreating   0          1s
+nginx-d-74b6b979f-v8bhs   0/1     ContainerCreating   0          1s
+nginx-d-74b6b979f-wb5sx   0/1     ContainerCreating   0          1s
+nginx-d-74b6b979f-x25ld   0/1     ContainerCreating   0          1s
+albertohernandez@Albertohernandez 6-rollingupdates % kubectl get pods
+NAME                      READY   STATUS    RESTARTS   AGE
+nginx-d-74b6b979f-5mkgc   1/1     Running   0          4s
+nginx-d-74b6b979f-bzrmj   1/1     Running   0          4s
+nginx-d-74b6b979f-g9jv8   1/1     Running   0          4s
+nginx-d-74b6b979f-hj8mn   1/1     Running   0          4s
+nginx-d-74b6b979f-kt9d2   1/1     Running   0          4s
+nginx-d-74b6b979f-m9bdx   1/1     Running   0          4s
+nginx-d-74b6b979f-prxnl   1/1     Running   0          4s
+nginx-d-74b6b979f-v8bhs   1/1     Running   0          4s
+nginx-d-74b6b979f-wb5sx   1/1     Running   0          4s
+nginx-d-74b6b979f-x25ld   1/1     Running   0          4s
+
+Esto es eficaz cuando se necesita a fuerzas que las maquinas se terminen y vuelva a subir una maquiona nueva.

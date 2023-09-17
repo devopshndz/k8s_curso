@@ -1,0 +1,53 @@
+apiVersion: apps/v1 # i se Usa apps/v1beta2 para versiones anteriores a 1.9.0
+kind: Deployment
+metadata:
+  name: nginx-d
+  labels:
+    estado: "1"
+spec:
+  selector:   #permite seleccionar un conjunto de objetos que cumplan las condicione
+    matchLabels:
+      app: nginx
+  replicas: 10 # indica al controlador que ejecute 2 pods
+  strategy: # estrategia de rolling
+     type: RollingUpdate
+     rollingUpdate:
+        maxUnavailable: 1 # nunca seas superior a 11 repicas (10 + 1)
+        maxSurge: 1       # nunca seas infgerior a 9 repicas (10 - 1)
+  minReadySeconds: 2      # numero de segundos minimos que debe de pasar para crear un pod
+  template:   # Plantilla que define los containers
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.16.1 # hacemos un cambiop, la anterior era: nginx:1.17.8 nginx:1.7.9
+        ports:
+        - containerPort: 80
+
+
+### anterior despliegue
+# apiVersion: apps/v1 # i se Usa apps/v1beta2 para versiones anteriores a 1.9.0
+# kind: Deployment
+# metadata:
+#   name: nginx-d
+#   labels:
+#     estado: "1"
+# spec:
+#   selector:   #permite seleccionar un conjunto de objetos que cumplan las condicione
+#     matchLabels:
+#       app: nginx
+#   replicas: 10 # indica al controlador que ejecute 2 pods
+#   strategy: # estrategia de rolling
+#      type: RollingUpdate
+#   template:   # Plantilla que define los containers
+#     metadata:
+#       labels:
+#         app: nginx
+#     spec:
+#       containers:
+#       - name: nginx
+#         image: nginx:1.17.8 # hacemos un cambiop, la anterior era: nginx:1.7.9
+#         ports:
+#         - containerPort: 80
