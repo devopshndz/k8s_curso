@@ -1,0 +1,18 @@
+# archivo de un pod enlazado al configmap config-volumen
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod1
+spec:
+  containers:
+    - name: contenedor1
+      image: k8s.gcr.io/busybox
+      command: [ "/bin/sh", "-c", "sleep 1000000" ] # command para que el pod no se quede en pausa y no se cierre
+      volumeMounts: # puntos de montaje del volumen
+      - name: volumen-config-map # nombre de nuestro volumen creado
+        mountPath: /etc/config-map # vamos a montar el volumen en....
+  volumes:
+    - name: volumen-config-map #  nombre del volumen, debe coincidir con el de arriba
+      configMap:
+        name: config-volumen # el cm creado anterior.
+  restartPolicy: Never
