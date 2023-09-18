@@ -214,3 +214,125 @@ lrwxrwxrwx    1 root     root            14 Sep 18 16:52 ENTORNO -> ..data/ENTOR
 lrwxrwxrwx    1 root     root            14 Sep 18 16:52 VERSION -> ..data/VERSION
 
 nos muestra los volumens montados
+
+
+### secrets
+parecidos a los configmap pero codificadas.
+es un recurso que nos permite guardar infromacion confidencial como credenciales de autenticacion, claves ssh, etc.
+tipos de secrets:
+opaque: protegidos
+service account token: una identity que nos permite ejecutar una accion en un pod por ejemplo en vez de utilizar user y pass
+docker config: almacena credenciales necesarias para acceder a un registro privado de docker que pida user y pass
+basic auth: user y pass 
+ssh: para conexion ssh
+TLS: certificado y la key asociada.
+bootstrap: token para bootstrap, no muy comun.
+
+### ejemplo secrets
+$ kubectl create secret generic passwords --from-literal=pass-root=kubernetes --from-literal=pass-usu=kubernetes
+se crea un secret generic de nombre passwords, pasandole un pass-root kubernetes y un pass=usu kubernetes
+$ kubectl get secrets --> ver los secrets
+NAME        TYPE     DATA   AGE
+passwords   Opaque   2      5s
+
+$ kubectl get secret passwords -o yaml --> ver la info mas detallada en formato yaml
+
+vamos a trabajar con un configmap datos-mysql-env.yaml en el cual solo abrán 2 valores mientras que los otros 2 valores estarán en el secret que ya he creado. se adjunta este secret 
+al .yaml
+apply
+con esto tenemos el configmap datos-mysql-env y el secrets password.
+apply al archivo mysql.yaml para que levante un deployment que utiliza tanto los secrets creados anteriormente y el configmap
+y listo, entramos al pod con un exec y listamos las variables con printenv y vemos las variables y secretos pasados.
+nos conectamos
+$ mysql -u usudb -p kubernetes
+y entramos.
+
+### uso de ficheros para crear secrets, delcarativo.
+inyectar el fichero dentro de un contenedor, de forma que vamos a tener una sola clave que sera el nombre del fichero y un solo valor que es el contenido del ficher.
+asi inyectamos contenido desde el exterior dentro del contenedor.
+fichero de datos.txt vamos a inyectarlo dentro del contenedor
+clave: datos.txt 
+valor: su contenido
+
+$ kubectl create secret generic datos --from-file=datos.txt
+creamos el secret desde el fichero datos.txt
+$ kubectl describe secrets datos
+$ kubectl get secrets datos -o yaml
+apiVersion: v1
+data:
+  datos.txt: RXN0byBlcyB1biBlamVtcGxvIGRlIHNlY3JldHMNCmluY29ycG9yYW9zIGRlc2RlIGZpY2hlcm8NCmRlbnRybyBkZSB1biBjb250ZW5lZG9yDQo=
+kind: Secret
+metadata:
+  creationTimestamp: "2023-09-18T19:52:38Z"
+  name: datos
+  namespace: default
+  resourceVersion: "124008"
+  uid: 4a66b322-b670-4538-8801-154e7e0015a9
+type: Opaque
+
+ahora creadmos el pod pod1 que esta relacionado con el secret y entramos con exec, printenv y vemos el fichero
+$ kubectl exec -it pod1 bash 
+KUBERNETES_PORT_443_TCP_PROTO=tcp
+KUBERNETES_PORT_443_TCP_ADDR=10.96.0.1
+DATOS=Esto es un ejemplo de secrets
+incorporaos desde fichero
+dentro de un contenedor
+
+
+### secrets declarativos
+crear encriptacion
+cuando trabajamos con datos encriptados, ejemplo del secreto1.yaml, al pasarle data como parametro, debemos darle valores encriptados: dXN1MQ==
+podemos encriptar estos valores desde el propio terminal usando base64 o alguna aplicacion web que genere la encriptacion.
+
+$ echo -n "usu1" | base64 --> esto genera que el usu1 salga encriptado desde la terminal linux
+dXN1MQ==
+echo -n "password-usu1" | base64
+cGFzc3dvcmQtdXN1MQ==
+
+$ kubectl apply -f secreto1.yaml
+$ kubectl get secret secreto1 -o yaml
+apiVersion: v1
+data:
+  usu1-pass: cGFzc3dvcmQtdXN1MQ==
+  usuario1: dXN1MQ==
+kind: Secret
+metadata:
+  annotations:
+
+para el ejemplo del secreto2.yaml lo que hace es, pedir que encripte la info y pasarla al contenedor, no como antes que ya pasabamos la info encriptada
+damos apply al secreto2.yaml
+y revisamos el contenido de secreto2 con salida yaml
+$ kubectl get secrets secreto2 -o yaml
+apiVersion: v1
+data:
+  usu2-pass: cGFzc3dvcmQtdXN1Mg==
+  usuario2: dXN1Mg==
+kind: Secret
+
+listo el pollo. ahora, como pasamos a un pod secretos? previamente creados los secretos secreto1 y secreto2, dentro de un archivo declarativo de pod, los colamos.
+usamos el archvio pod1.yaml que dentro tiene:
+envFrom:
+        - secretRef:
+              name: secreto1 # secreto1 ya creado  
+        - secretRef:
+              name: secreto2 # secreto2 ya creado
+
+apply al pod1
+$ kubectl exec -it pod1 bash
+printenv y estan los 2 secretos tanto los de secreto1 y secreto2, desencriptado dentro del pod. 
+
+### secrets en volumentes
+asociar un secret a un directorio en donde cada componente o propiedad del secret va a ser un directorio.
+no estan los ficheros jajaja y me da hueva hacerlos
+
+## Secrets de tipo docker para acceder a un regristro de imagenes privado.
+se usa para ver imagenes privadas que necesitan un user y pass 
+usamos pod-secret-docker.yaml
+lo haremos con mi repositorio
+
+$ kubectl create secret docker-registry midocker --docker-server=docker.io --docker-username=acertijo138 --docker-password=password --docker-email=devopsahernndez@gmail.com
+creamos el secret con las credenciales de docker
+$ kubectl get secrets --> para ver el secret creado
+ojo, la password no es la mia, es solo ilustracion
+se hace apply de pod-secret-docker.yaml
+se debería conectar a mi docker registry y descargar la imagen.
