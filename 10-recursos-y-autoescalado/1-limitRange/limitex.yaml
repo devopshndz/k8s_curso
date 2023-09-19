@@ -1,0 +1,20 @@
+### archivo de LimitRange
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: recursos
+spec:
+  limits:
+  - default: # los valores para todo el namespace
+      memory: 512Mi # valor por default de la memoria
+      cpu: 1 # valor por default de la cpu
+    defaultRequest:
+      memory: 256Mi # valor minimo requerido por default de la memoria
+      cpu: 0.5 # valor minimo requerido por default de la cpu
+    max:
+      memory: 1Gi # valores maximos de memory y cpu
+      cpu: 4
+    min:
+      memory: 128Mi # valores minimos de memory y cpu
+      cpu: 0.5
+    type: Container

@@ -1,0 +1,30 @@
+apiVersion: apps/v1 # i se Usa apps/v1beta2 para versiones anteriores a 1.9.0
+kind: Deployment
+metadata:
+  name: nginx-d
+  labels:
+    estado: "1"
+spec:
+  selector:   #permite seleccionar un conjunto de objetos que cumplan las condicione
+    matchLabels:
+      app: nginx
+  replicas: 3 # indica al controlador que ejecute 2 pods
+  template:   # Plantilla que define los containers
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.7.9
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+              memory: "500Mi" #nunca se va a pasar de este limite
+              cpu: "2" #añadimos capacidad de cpu, limite de cpu, tener en cuenta que es para todos los contenedores 
+          requests:
+              memory: "100Mi" #valor suficiente para iniciar el contenedor 
+              cpu: "0.5" #valor suficiente para indicar el minimo de cpu de arrancque.
+              # si el nodo no tiene suficientes recursos para ofrecerme lo que estoy solicitando nos puede arroja un error.
+

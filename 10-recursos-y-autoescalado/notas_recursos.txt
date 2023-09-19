@@ -1,0 +1,100 @@
+### Asignacion de recursos en un cluster de k8s
+determinar bien la cpu y memoria, para que no se pisen entre ellos. El software ejecutar con pripidades y recursos concretos.
+configurar recursos de forma manual:
+pod, namespace, nodos
+
+automaticamente:
+escalado
+
+### configurar recursos de memoria a un pod
+deploy_nginx.yaml
+resources:
+          limits:
+              memory: "200Mi" #nunca se va a pasar de este limite
+          requests:
+              memory: "100Mi" #valor suficiente para iniciar el contenedor
+
+apply y luego
+$ kubectl edit deploy nginx-d --> nos sirve para editar info pero tambien para comprobar valores que hemos pasado como el de la memoria 
+resources:
+          limits:
+            memory: 200Mi
+          requests:
+            memory: 100Mi
+            
+### CPU
+para agregar cpu es exactamente lo mismo que con memory,en limit y en request se deben colocar con la misma premisa, teniendo en cuenta de que el numero de cpu que se coloque
+es para todos los contenedores de ese del nodo en el cual se vaya a desplegar el pod.
+agregamos en el mismo deploy_nginx.yaml
+resources:
+          limits:
+              memory: "200Mi" #nunca se va a pasar de este limite
+              cpu: "2" #añadimos capacidad de cpu, limite de cpu, tener en cuenta que es para todos los contenedores 
+          requests:
+              memory: "100Mi" #valor suficiente para iniciar el contenedor 
+              cpu: "0.5" #valor suficiente para indicar el minimo de cpu de arrancque.
+
+y apply.
+hacemos un describe pod a cualquiera de los pods que creamos (recordar que se crean 4 replicas asi que podemos escoger uno de esos 4 pods) y nos encontramos la cpu y memory asignada.
+Limits:
+      cpu:     2
+      memory:  200Mi
+    Requests:
+      cpu:        500m
+      memory:     100Mi
+
+debemos tener en cuenta como los recursos del nodo en el que estamos trabajando, y que valores minimos podemos usar en cpu y memoria para que nuestra app trabaje bien.
+damos apply al deploy_nginx.yanl y vamos viendo el comportamiento de las replicas.
+
+### informacion de los pods. instalar metric service en minikube
+$ kubectl top --> info de recursos de los pods y de nos nodos en cuanto cpu y memory
+kubernetes metrics server: recopilacion de metricas y trabajar con el autoescalado horizontal y vertical.
+instalar con minikube, solo activarlo
+
+$ minikube addons list
+metrics-server es el nuestro
+$ minikube addons enable metrics-server --> lo activamos
+
+$ kubectl top pod nginx-d-6bcc95577c-26gps --> hacerlo en un pod y ver los recursos que esta consumiendo.
+nginx-d-6bcc95577c-26gps   0m           9Mi       
+
+### instalar el metric server en un cluster creado fuera de minikube
+documentacion de kubernetes metric server, ahora no lo voy a realizar porque no tengo ningun cluster creado (realizar la practica de kubeadm que no he realizado)
+
+### Determinar los recursos de memoria y las CPU en un ns
+Se puede crear limites de recuros a los namespace para que sus nodos y pods puedan tener que trabajar con esto.
+- LimitRange: determinar los limites y valores por defecto que van a utilizar los pods y los contenedores dentro de un namespace.
+  Esto impide que los pods o contenedores no superen determinados limites dentro de un entorno ns
+- ResourceQuota: Permite limitar los recursos totales utilizados dentro de un namespace..
+  Le veoy a poner unj limite a mi namespace. Esto permite que haya multiples proyectos en nuestra infra que consuman distintos limites de recursos.
+
+### LimitRange practica
+vamos a usar el fichero limitex.yaml, en el estan todas las configuraciones de LimitRange
+vamos a crear primero el ns dev1 del capitulo 5 de namespace:
+$ kubectl apply -f ../../5-namespaces/namespace.yaml
+si hacemos un get ns nos muestra el ns dev1. aqui utilizaremos todo el ejercicio.
+$ kubectl apply -f limitex.yaml -n dev1 --> apply el limitex.yaml dentro del ns dev1.
+$ kubectl describe ns dev1 --> vemos como el ns dev1 tiene asignados los recursos que pasamos mediante el limitex.yaml
+para trabajar mejor a partir de aqui con nuestro ns dev1 vamos a seleccionarlo por defecto:
+$ kubectl config set-context --current --namespace=dev1
+para que quede claro:
+Resource Limits
+ Type       Resource  Min    Max  Default Request  Default Limit  Max Limit/Request Ratio
+ ----       --------  ---    ---  ---------------  -------------  -----------------------
+ Container  memory    128Mi  1Gi  256Mi            512Mi          -
+ Container  cpu       500m   4    500m             1              -
+
+ mientras yo esté dentro de los rangos Min del ns, no voy a tener problemas para realizar operaciones en mi ns.
+ creamos un pod de prueba apache1
+ $ kubectl run apache1 --image=httpd
+ $ kubectl exec -it apache1 bash --> entramos al contenedor de apache1
+ apt-get update
+ apt-get install stress --> vamos a hacerle un proceso de stress a la memoria para ver su comportamiento, primero lo instalamos
+
+ podemos ver el comportamiento de la memoria por medio de 
+ $ watch kubectl top pod --> en una terminal nueva para que vaya mostrando en tiempo real (no me funciona el watch)
+ o verlo desde el dashboard de minikube
+ desde el terminal del pod:
+ $ stress -m 10 --> 10 procesos de memoria es muy grande, no lo lanza.
+ $ stress -m 1 --> con este si podemos ver como se estresa la memoria del pod. esto a que se debe? al LimitRange que colocamos de memoria. podemos visualizarlo en el dashboard de minikube
+cuando lo detenemos podemos ver desde el dashboard como desciende la grafica de memoria del proceso. asi actua el LimitRange.
