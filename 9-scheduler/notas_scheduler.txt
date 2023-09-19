@@ -1,0 +1,174 @@
+### Scheduler
+Como se asocian los pods a los nodos. Que decision toma k8s para decidir si un pod va a parar a un determinado nodo o a otra.
+se van a utilizar los labels muchisimo.
+cuando se crea un pod, se le va asignar una especie de cola, scheduler queue, este determina a donde va a parar el pod.
+el scheduler hace un paso de filtrado, determina que nodos no cumplen determinadas condiciones (taint, recursos, selectors)
+luego hace un scoring, determina que nodo tiene la posicion mas alta de los que quedan sin filtrar (afinidad, existencia de imagen, carga) 
+una vez se tiene ese nodo, el scheduler se pone en contacto con kubelet container runtime y lanza ese pod a ese nodo. y asi se asignan los pods a los nodos.
+
+### Node selector
+Manera eficiente de determinar a donde pueden ir a parar un pod. Busca en una serie de nodos que tengan determinada condicion para determinar que sean candidatos para que los nodos lleguen
+a parar a dichos nodos.
+usaremos nginx.yaml
+dentro del archivo hacemos algunos cambios para agregar el nodeSelector:
+spec:
+  containers:
+   - name: nginx   
+     image: nginx
+  nodeSlector: # indicar una etiqueta o un clave valor que permita identificar aquellos nodos que la contengon para que vayan a ser accedidos.
+    entorno: desarrollo # aquellos nodos que tengan esta etiqueta desarrollo seran nodos candidatos a que este pod sea añadido. el resto se van a rechazar.
+
+podemos ver las etiquetas de los nodos:
+$ kubectl get nodes --show-labels
+el nodo actual que tengo, no posee esta etiqueta de entorno desarrollo. si hago un apply al fichero nginx.yaml para crear el pod, este pod va a quedar en pending, porque especificamos
+que se creara en nodos con la etiqueta desarrollo.
+agregamos la label desarrollo en el nodo minikube:
+$ kubectl label node <ip del node> entorno=desarrollo
+ahora, ya agregada la etiqueta, si le damos apply al fichero nginx.yaml se nos crea el pod y este se adjunta al nodo al cual le hemos pasado el label de entorno desarrollo.
+
+### NodeSelector con deployment
+utilizamos el deploy_nginx.yaml y le colocamos un nodeselector:
+nodeSelector: 
+        aplicacion: web
+vamos a crear 2 nodos para trabajar ya que el profesor este ni dice como crear los nodos y asume que tenemos mas nodos creados cuando no es asi.
+$ minikube node add --> lo repetimos 2 veces para que nos cree 2 nodos.
+ya creados los nodos vamos a agregarle la label que colocamos la label aplicacion:web
+
+$ kubectl label node minikube-m02 aplicacion=web --> add label aplicacion=web al nodo
+$ kubectl label node minikube-m03 aplicacion=web --> etiqueta al nodo m03
+$ kubectl get nodes --show-labels --> vemos los nodos listando las labels y en el nodo m02 está nuestra label
+una vez ya revisado que la etiqueta se creó, hacemos un apply de deploy_nginx.yaml
+cuando hacemos el apply y vemos el contenido de los pods con get pods -o wide, se nos muestra que los 6 pods se distribuyen en los 2 nodos que tenemos, 3 en cada nodo, ya que estos 
+nodos contienen la etiqueta aplicacion:web:
+$ kubectl get pods -o wide
+NAME                       READY   STATUS    RESTARTS   AGE   IP           NODE           NOMINATED NODE   READINESS GATES
+nginx-d-798c9767b7-882fh   1/1     Running   0          37s   10.244.5.2   minikube-m02   <none>           <none>
+nginx-d-798c9767b7-94pw2   1/1     Running   0          37s   10.244.5.4   minikube-m02   <none>           <none>
+nginx-d-798c9767b7-clzjp   1/1     Running   0          37s   10.244.6.3   minikube-m03   <none>           <none>
+nginx-d-798c9767b7-crrwr   1/1     Running   0          37s   10.244.6.2   minikube-m03   <none>           <none>
+nginx-d-798c9767b7-hwwnv   1/1     Running   0          37s   10.244.6.4   minikube-m03   <none>           <none>
+nginx-d-798c9767b7-jrclb   1/1     Running   0          37s   10.244.5.3   minikube-m02   <none>           <none>
+
+De esta manera usando el node selector, dentro de spc, y a nivel de container, podemos colocar las labels que deben tener los nodos adjuntadas para que los pods puedan agregarse a estos.
+
+### etiquetas bien definidas.
+hay una serie de etiquetas predefinidas que se le asignan a los nodos cuando se crean.
+estas etiquetas tienen la anotacion kubernetes.io y se asocian de forma automatica.
+ver en la documentacion de kubernetes en working with kubernetes objetcs.
+
+$ kubectl get nodes
+$ kubectl describe node minikube-m02
+Name:               minikube-m02
+Roles:              <none>
+Labels:             aplicacion=web
+                    beta.kubernetes.io/arch=arm64
+                    beta.kubernetes.io/os=linux
+                    kubernetes.io/arch=arm64
+                    kubernetes.io/hostname=minikube-m02
+                    kubernetes.io/os=linux
+
+$ kubectl get pods --show-labels
+NAME                       READY   STATUS    RESTARTS   AGE   LABELS
+nginx-d-798c9767b7-882fh   1/1     Running   0          18m   app=nginx,pod-template-hash=798c9767b7
+nginx-d-798c9767b7-94pw2   1/1     Running   0          18m   app=nginx,pod-template-hash=798c9767b7
+
+k8s siempre intenta poner labels predefinidas a parte de las que nosostros colocamos.
+
+### Afinidad de nodos.
+parecida al nodeSelector, es mucho mas detallada, se pueden agregar relgas de distinto tipo, podemos definir si las reglas se aplican a la fase de scheduling o de ejecucion.
+O sea, hay algunas reglas que solo se tendran en cuenta a la hora de hacer la planificacion y habrá otras reglas que solo se tendran en cuenta en la fase de ejecucion.
+scheduling: cuando se esta creando el pod.
+ejecution: cuando el pod ya esta arriba
+
+se podrá también difinir si es preferida o si es obligatoria.
+    requiredDuringSchedulingIgnoredDuringExecution # ej: en todos los nodos con desarrollo deben ir los pods X, si el nodo cambia su etiqueta, el pod que esta arriba sigue trabajando en el nodo. 
+    requiredDuringSchedulingRequiredDuringExecution
+    preferredDuringSchedulingIgnoredDuringExecution # ej: 
+    preferredDuringSchedulingRequiredDuringExecution
+
+se utilizan etiquetas para identficas los nodos correctos.
+se puede usar tambin anti affinity, lo contrario de affinity
+se pueden utilizar distintos operadors y opcions para poner estas reglas.
+spec:
+    affinity:
+        nodeAffinity:
+            requiredDuringSchedulingRequiredDuringExecution
+                nodeSelectorTerms:
+                    -
+                    -
+            preferredDuringSchedulingIgnoredDuringExecution
+                    -
+                    -
+
+### Ejemplo practico afinidad de nodos.
+usaremos pod_affinity.yaml
+si desplegamos el pod_affinity van a pasar 2 cosas:
+el pod se desplegara, pero no se creará, quedará en pending, esto debido a que no tenemos actualmente nodos con las etiquetas del pod. es indispensable que los nodos posean las etiquetas
+$ kubectl apply -f pod_affinity.yaml
+$ kubectl get pods
+apache1                    0/1     Pending   0          5s
+
+listo, agregamos la o las labels a los nodos, no es necesario agregar las 2 labels (desarrollo-web, desarrollo-python) ya que con la condicion que agregamos al fichero pod_affinity.yaml 
+hacemos que con solo 1 de las 2 nos trabajen los nodos.
+$ kubectl label node minikube-m02 equipo=desarrollo-web --> asignando la label equipo=desarrollo-web al nodo minikube-m02
+ahora con un get pods se nos muestra el pod corriendo
+apache1                    1/1     Running   0          5m7s
+
+ya podemos ver mediante un get node -o wide y un describe pod apache1 como queda enlazado el pod apache1 al nodo seleccionado.
+Esta forma es la mejor practica para trabajar con scheduler, mucho mas practica que con nodeSelector.
+
+### taints y tolerations
+otra forma, hacen lo contrario del nodeSelector
+- Taint: Permite que un nodo no acpete uno o varios pods
+es lo contrario al node affinity. con esta forma decimos cuales nodos no se deben aplicar.
+importante:
+taints son las reglas que le pongo a los nodos
+tolerations son las reglas que le pongo a los pods
+
+un pod con determinada tolerancia, será adjuntado a un nodo dependiendo el taint que tenga este.
+ejemplo:
+en un nodo
+taint:
+    entorno=produccion:NoSchedule
+
+en un pod:
+tolerations:
+    - key:"entorno"
+      operator:"exists" # cuando existe algo
+      effect:"NoSchedule"
+Se cumple todo y el pod entra en el nodo
+
+en un pod:
+tolerations:
+    - key:"entorno"
+      operator:"equal" # cuando es igual
+      value:"produccion"
+      effect:"NoSchedule"
+tambien se cumple y el pod va al nodo
+
+si en un pod:
+no hay toleration o no hay nada que tenga que ver con el entorno del nodo, no se cumple y el pod no va a ese nodo
+
+### ejercicio
+un nodo con un hardware especial y queremos que los pods no vayan a ese nodo, solo determinados pods que cumplan la condicion y que tengan la tolerancia correspondiente.
+usaremos deploy_nginx-toleration.yaml
+minikube-m03
+
+$ kubectl taint nodes minikube-m03 memoria=grande:NoSchedule --> estamos agregando un taint al nodo minikube-m03 el cual la memoria va a ser grande y sera NoSchedule
+si hacemos un 
+$ kubectl describe node minikube-m03
+Taints:             memoria=grande:NoSchedule
+nos muestra el taint creado
+
+una vez colocado el taint, pasan cosas:
+1) todo despliegue que se haga de nodos que no tengan esta tolerancia, no van a poder ir al nodo.
+2) todo despliegue que se haga de de nodos que SI tengan esta tolerancia, si van a poder ir al nodo.
+
+si por ejemplo hacemos un apply del pod_affinity.yaml este se desplegara en otro nodo.
+si hacemos el apply del deploy_nginx-toleration.yaml, si ira a nuestro nodo ya que este si tiene la tolerancia requeriada:
+tolerations:
+      - effect: NoSchedule
+        key: memoria
+        operator: Equal
+        value: grande
+

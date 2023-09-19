@@ -1,0 +1,20 @@
+# pod con affinidad de nodos
+apiVersion: v1 
+kind: Pod
+metadata:
+  name: apache1
+spec:
+  affinity: # declarando affinidad 
+     nodeAffinity: # en nodos porque estamos trabajando contra nodos
+        requiredDuringSchedulingIgnoredDuringExecution: # requerido durante el scheduling ignorado durante la ejecución
+          nodeSelectorTerms: # terminos del selector
+          - matchExpressions: # determinar la condicion de igualdad o comparacion con la cual detectaremos este nodo.
+             - key: equipo # label equipo
+               operator: In #  que tenga entre sus valores, todos los values de abajo, cualquiera de los 2 valores le valdr®ia no necesariamente tienen que ser los 2 gracias al operador in.
+               values:
+               - desarrollo-web # esto es equipo=desarrollo-web
+               - desarrollo-python # esto es equipo=desarrollo-python
+  containers:
+  - name: apache1
+    image: httpd
+

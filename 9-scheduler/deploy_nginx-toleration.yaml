@@ -1,0 +1,25 @@
+apiVersion: apps/v1 # i se Usa apps/v1beta2 para versiones anteriores a 1.9.0
+kind: Deployment
+metadata:
+  name: nginx-d
+spec:
+  selector:   #permite seleccionar un conjunto de objetos que cumplan las condicione
+    matchLabels:
+      app: nginx
+  replicas: 10 # indica al controlador que ejecute 10 pods
+  template:   # Plantilla que define los containers
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.7.9
+        ports:
+        - containerPort: 80
+      tolerations: # estamos definiendo tolerancia en el pod
+      - effect: NoSchedule # tipo effect NoSchedule
+        key: memoria # la key memoria
+        operator: Equal # igual a
+        value: grande # el mismo valor que se paso en el taint
+

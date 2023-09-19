@@ -1,0 +1,15 @@
+# creacion de un pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+    zone: prod
+    version: v1
+spec:
+  containers:
+   - name: nginx   
+     image: nginx
+  nodeSlector: # indicar una etiqueta o un clave valor que permita identificar aquellos nodos que la contengon para que vayan a ser accedidos.
+    entorno: desarrollo # aquellos nodos que tengan esta etiqueta desarrollo seran nodos candidatos a que este pod sea añadido. el resto se van a rechazar.
+   #  image: apasoft/nginx:v1
