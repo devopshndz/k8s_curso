@@ -1,0 +1,48 @@
+### notas autoescalado
+Significa que k8s puede aumentar o reducir los recursos de forma automatica, dependiendo de la carga de trabajo que tengamos en la plataforma.
+tipos:
+HPA: horizontal pod autoscaler --> escala el numero de pods que tenemos de un determinado deploy. gestionado por el controller manager.
+VPA: vertical pod autoscaler --> escala en funcion de la los recursos, sube memory, cpu, oo baja
+CA: Cluster autoscaler --> Con esta característica podemos aumentar el número de nodos en el clúster sí los nodos existentes no son capaces de afrontar el número de posts que se 
+    le solicitan. Esta opción funciona básicamente en entornos Cloud donde se solicita al proveedor nuevas máquinas según nuestras necesidades
+
+### ejemplo 
+fichero deploy_hpa.yaml, contiene un apache con php, y vamos a desplegarlo con 1 sola replica y luego vamos a atacar a este pod para que vaya escalando.
+apply.
+recordar que tenemos por defecto el ns dev1
+$ kubectl get pods
+NAME                      READY   STATUS    RESTARTS   AGE
+apache-84b9ddc7bd-fxcsh   1/1     Running   0          80s
+nginx                     1/1     Running   0          125m
+nginx1                    1/1     Running   0          122m
+$ kubectl get deploy
+NAME     READY   UP-TO-DATE   AVAILABLE   AGE
+apache   1/1     1            1           90s
+
+listo tenemos arriba el apache con 1 sola replica.
+tenemos un servicio de nombre servicio_hpa.yaml el cual tambien se llama apache y se le adjuntará a nuestro deploy escuchando por el puerto 80.
+apply
+$ kubectl get svc  
+NAME     TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)   AGE
+apache   ClusterIP   10.96.87.39   <none>        80/TCP    6s
+
+todo ok.
+ahora vamos a crear el HPA:
+$ kubectl autoscale --help --> para ver como funciona y opciones.
+generamos el autoscale que va a tener el deployment asignado:
+$ kubectl autoscale deployment apache --cpu-percent=40 --min=1 --max=8 --> creamos un autoscale horizontal hacia nuestro deployment apache pasandole parametros de cpu
+una vez creado el autoscale podemos verlo
+$ kubectl get hpa
+NAME     REFERENCE           TARGETS   MINPODS   MAXPODS   REPLICAS   AGE
+apache   Deployment/apache   0%/40%    1         8         1          8m24s
+
+para este ejemplo tambien vamos a utilizar un pod de forma interactivo para que le haga llamadas continuas a nuestro pod de apache para obligarlo a hacer escalada.
+primero:
+$ watch kubectl get hpa --> en una terminal aparte vamois a abrir este watch para ver en tiempo real en comportamiento del autoscale que hemos creado que esta adjuntado al servicio apache.
+a parte tambien tendremos el dashboard de minikube para ver en graficamente el comportamiento del pod apache.
+$ kubectl run -i -tty carga --rm --image=busybox:1.28 --restart=Never -- /vin/sh -c "while sleep 0.01; do wget -q -0- http://apache; done"
+al lanzar el comando empezaran las peticiones.
+
+Nota: no he podido hacer la practica ya que el comandop de las peticiones no funciona en Mac.
+En teoria que pasa: al lanzar el pod de peticiones, este empieza a realizar las peticiones y hace que el pod nuestro escale a medida que pase el tiempo. cuando uno mata este pod de 
+peticiones con ctrl + c, nuestro pod apache empieza a desescalar.
