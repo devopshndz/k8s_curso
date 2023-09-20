@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-grandes
+spec:
+  hard:
+    requests.cpu: "100"
+    requests.memory: 500Mi
+    limits.cpu: "500"
+    limits.memory: 1Gi
+    pods: "5"
+  scopeSelector: # selector
+    matchExpressions:
+    - operator : In
+      scopeName: PriorityClass # la clase de prioridad debe existir previamente. Detecta si un pod va a una quota o a otra. su clase de prioridad sera produccion
+      values: ["produccion"] # debe contener a produccion
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-peques
+spec:
+  hard:
+    requests.cpu: "50"
+    requests.memory: 100Mi
+    limits.cpu: "100"
+    limits.memory: 200Mi
+    pods: "10"
+  scopeSelector:
+    matchExpressions:
+    - operator : In
+      scopeName: PriorityClass # su clase de prioridad sera desarrollo
+      values: ["desarrollo"]
+

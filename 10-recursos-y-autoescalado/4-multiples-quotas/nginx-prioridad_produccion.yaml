@@ -1,4 +1,3 @@
-# pod configurado para trabajar con quota
 apiVersion: v1
 kind: Pod
 metadata:
@@ -17,6 +16,4 @@ spec:
       requests:
         memory: "10Mi"
         cpu: "0.5"
-        # colocamos limits y requests que deben cuadrar con lo configurado para el ns
-        # recordemos: request cpu=100 memory=500Mi, limits cpu=500 memory=1Gi
-
+  priorityClassName: produccion

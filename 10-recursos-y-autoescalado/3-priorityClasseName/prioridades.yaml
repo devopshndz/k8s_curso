@@ -1,0 +1,20 @@
+# fichero de prioridad
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: produccion
+value: 100 # CUANTO MAS GRANDE ES EL NUMERO, MAS PRIORIDAD TIENE EL POD.
+preemptionPolicy: PreemptLowerPriority # importante, politica de prioridad. esta de aqui dice que si los pods tiene menos prioridad a 100, los expulse del nodo. Si en vezx de Preempt... es None, no pasa esto
+globalDefault: false # si fuera true, esta prioridad va a ser utilizada para todos aquellos pods que no tengan clase de prioridad, o sea, automaticamente los pods toman esta clase de prioridad. importante saber si se quiere o no
+description: "Pods para entornos de Producción."
+
+---
+### prioridad para desarrollo
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: desarrollo
+value: 50 # menos prioridad a desarrollo
+preemptionPolicy: PreemptLowerPriority
+globalDefault: false
+description: "Pods para entornos de desarrollo."

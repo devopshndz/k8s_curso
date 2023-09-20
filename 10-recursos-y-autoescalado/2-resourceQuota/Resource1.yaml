@@ -1,9 +1,28 @@
+# fichero de ResourceQuota de nombre pods-grandes
 apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: pods-grandes
 spec:
-  hard:
-    cpu: "100"
-    memory: "500Mi"
-    pods: "5"
+  hard: 
+    # forma de solo quota, si nosotros solo colocamos cpu y memory, el indica que esto es request
+    # cpu: "100" # valor de cou
+    # memory: "500Mi" # valor de memory
+    # pods: "5" # como maximo vamos a poder crear 5 pods
+    # # aqui le estoy diciendo que estos son los recursos que quiero tener a nivel de ns.
+
+    # # forma de quota y limits
+    # requests.cpu: "100"
+    # requests.memory: 500Mi
+    # limits.cpu: "500"
+    # limits.memory: 1Gi
+    # pods: 5
+    # se colocan requests. y limits. para especificar cada uno de los componentes que se describen al hacer describe. tambien para que k8s sepa cuales son los requeridos y cuales los limites.
+    
+    #actualizacion para que los pods puedan subirse porque les faltaba mas recursos de quota
+    # forma de quota y limits
+    requests.cpu: "100"
+    requests.memory: 1Gi
+    limits.cpu: "500"
+    limits.memory: 1Gi
+    pods: 5

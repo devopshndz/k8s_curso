@@ -1,0 +1,30 @@
+apiVersion: apps/v1 # i se Usa apps/v1beta2 para versiones anteriores a 1.9.0
+kind: Deployment
+metadata:
+  name: apache-prod # cambiamos el nombre del deployment. Si lanzamos este, estamos diciendo que este deployment tiene mas prioridad que el anterior. Estos pods son mas importantes.
+                    # si no encuentra sitio para sus replicas va a intentar hechar a los pods que esten para colocar los suyos.
+  labels:
+    estado: "1"
+spec:
+  selector:   #permite seleccionar un conjunto de objetos que cumplan las condicione
+    matchLabels:
+      app: apache
+  replicas: 5  # indica al controlador que ejecute 5 pods
+  template:   # Plantilla que define los containers
+    metadata:
+      labels:
+        app: apache
+    spec:
+      priorityClassName: "produccion" # prioridad produccion no desarrollo
+      containers:
+      - name: apache
+        image: httpd 
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+              memory: "400Mi"
+              cpu: "1"
+          requests:
+              memory: "256Mi" 
+              cpu: "0.5"

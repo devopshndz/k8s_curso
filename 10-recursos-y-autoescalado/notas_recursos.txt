@@ -98,3 +98,253 @@ Resource Limits
  $ stress -m 10 --> 10 procesos de memoria es muy grande, no lo lanza.
  $ stress -m 1 --> con este si podemos ver como se estresa la memoria del pod. esto a que se debe? al LimitRange que colocamos de memoria. podemos visualizarlo en el dashboard de minikube
 cuando lo detenemos podemos ver desde el dashboard como desciende la grafica de memoria del proceso. asi actua el LimitRange.
+borramos todo hasta los limits y pods
+$ kubectl delete limits recursos
+
+### LimitRange. Valores por defecto
+los valores por defecto que colocamos en el limitRange seran para todos los pods que agreguemos, de ahi que los coloquemos por defecto.
+
+### ResourceQuota, cuotas de recursoso
+La principal diferencia con los limits es que los limits los ponemos a nivel individual para los contenedores/pods que creamos dentro de un namespace y los ResourceQuotas las colocamos a
+nivel de la namspace completa.
+Si yo tengo 10 pods que cumplen los limites, deberian funcionar, si el conjunto de esos pods no cumple la quota, entonces no debe funcionar.
+la quota lo que me impide es que un ns sobrepase los limites a nivel global.
+ej: tengo una maquina de 32 gb, y tengo 2 ns, desarrollo y produccion, yo podria colocar una quota de 4 gb a la parte de desarrollo y de 12 gb a la parte de produccion. de modo que ninguna
+de las 2 ns superaran esos tamaños que tengo reservadas para ellos.
+
+ejemplo:
+usaremos Resource1.yaml
+apply
+$ kubectl get quota --> para ver las quotas, como solo tengo 1 se muestra.
+NAME           AGE   REQUEST                                         LIMIT
+pods-grandes   13m   cpu: 0/100, memory: 0/500Mi,                    pods: 0/5  
+Tenemos todo en 0 porque no tenemos nada arriba y no hemos creado limits, solo quota
+
+otra forma de ver la quota es mostrar el ns dev1 en donde estamos trabajando por medio de un describe
+$ kubectl describe ns dev1
+Name:         dev1
+Labels:       kubernetes.io/metadata.name=dev1
+              tipo=desarrollo
+Annotations:  <none>
+Status:       Active
+
+Resource Quotas
+  Name:     pods-grandes
+  Resource  Used  Hard
+  --------  ---   ---
+  cpu       0     100
+  memory    0     500Mi
+  pods      0     5
+
+No LimitRange resource.
+
+actualizamos un poco el Resource.yaml para agregar requests y limits.
+$ kubectl get quota               
+NAME           AGE   REQUEST                                                    LIMIT
+pods-grandes   19m   pods: 0/5, requests.cpu: 0/100, requests.memory: 0/500Mi   limits.cpu: 0/500, limits.memory: 0/1Gi
+
+ahora creamos un pod
+$ kubectl run apache1 --image=httpd
+Error from server (Forbidden): pods "apache1" is forbidden: failed quota: pods-grandes: must specify limits.cpu for: apache1; limits.memory for: apache1; requests.cpu for: apache1; 
+requests.memory for: apache1
+nos da error porque ahora como hemos configurado limits y requests  debemos colocar la quota de memoria y cpu para que satisfaga la espeficiacion de estos que creamos para el ns
+vamos a utilizar nginx.yaml para esto ya configurado:
+$ kubectl apply -f nginx.yaml 
+comprobamos la quota
+$ kubectl get quota
+NAME           AGE   REQUEST                                                          LIMIT
+pods-grandes   27m   pods: 1/5, requests.cpu: 500m/100, requests.memory: 10Mi/500Mi   limits.cpu: 1/500, limits.memory: 100Mi/1Gi
+
+haciendo un describe del pod nos muestra los limits y request que le otorgamos en su despliegue.
+$ kubectl describe pod nginx
+Limits:
+      cpu:     1
+      memory:  100Mi
+    Requests:
+      cpu:        500m
+      memory:     10Mi
+  
+el pod se crea y trabaja con normalidad porque los recursos en el estan dentro del umbral permitido.
+Ahora seguiremos añadiendo mas recrusos, utilizamos el fichero deploy_recursos.yaml
+tiene 2 replicas, eso quiere decir que el limite y recursos que le agregamos se va a multiplicar x2.
+apply
+al hacer un get pods solo nos va a mostrar 1 solo pod creado, no 2, al sacara la quota nos fijamos en algo:
+$ kubectl get quota                    
+NAME           AGE   REQUEST                                                        LIMIT
+pods-grandes   41m   pods: 2/5, requests.cpu: 1/100, requests.memory: 266Mi/500Mi   limits.cpu: 2/500, limits.memory: 500Mi/1Gi
+
+en el request.memory tenemos 500Mi, pero se estan utilizando 266, al ser 2 replicas, 266+266=532Mi, sobrepasa el request. Por ende, solo permite crear 1 solo pod, no 2.
+Si queremos mas claridad, entramos en un entorno grafico como dashboard u octant, y vemos el deployment nginx-d (ultimo creado con 2 replica) nos muestra mensaje de error debido 
+a que se a excedido la quota: 
+pods "nginx-d-78b5689cb-xpd9p" is forbidden: exceeded quota: pods-grandes, requested: requests.memory=256Mi, used: requests.memory=266Mi, limited: requests.memory=500Mi
+
+Y esto va a seguir siendo asi aun tratemos de hacer un scale, esto es debido el request y el limits creado para el ns, si queremos que los poids suban debemos controlar esto y modificar
+recordemos que esto lo hemos configurado en el archivo Resource1.yaml
+requests.cpu: "100"
+    requests.memory: 1Gi
+    limits.cpu: "500"
+    limits.memory: 1Gi
+    pods: 5
+
+apply al Recursos1.yaml
+vamos esperando a que vaya subiendo la quota y los recursos y los pods
+
+$ kubectl get quota              
+NAME           AGE   REQUEST                                                          LIMIT
+pods-grandes   54m   pods: 3/5, requests.cpu: 1500m/100, requests.memory: 522Mi/1Gi   limits.cpu: 3/500, limits.memory: 900Mi/1Gi
+$ kubectl get pods
+NAME                      READY   STATUS    RESTARTS   AGE
+nginx                     1/1     Running   0          29m
+nginx-d-78b5689cb-d9k2t   1/1     Running   0          13m
+nginx-d-78b5689cb-v7t8v   1/1     Running   0          2m17s
+$ kubectl get rs
+NAME                DESIRED   CURRENT   READY   AGE
+nginx-d-78b5689cb   2         2         2       14m
+
+y listo, todos los recursos estan en funcionamiento.
+
+### Prioridad
+Como hacer que un pod tenga mas importancia que otro?
+se puede con la prioridad, es tan sencillo como darle una prioridad, mayor o menor a un pod.
+fichero prioridades.yaml
+primero borramos todo lo de limits y quotas anteriores.
+$ kubectl get pc --> forma de ver las priorityClasses
+NAME                      VALUE        GLOBAL-DEFAULT   AGE
+system-cluster-critical   2000000000   false            29d # a nivel de cluster
+system-node-critical      2000001000   false            29d # a nivel de nodo
+
+apply del prioridades.yaml
+$ kubectl get pc                   
+NAME                      VALUE        GLOBAL-DEFAULT   AGE
+desarrollo                50           false            3s
+produccion                100          false            3s
+system-cluster-critical   2000000000   false            29d
+system-node-critical      2000001000   false            29d
+
+para probar esto de la prioridar utilizaremos los ficheros deploy_pc_alta.yaml y deploy_pc_low.yaml
+iniciamos con el low.yaml, apply
+revisamos:
+al darle un get pods o al ir al dashboard nos muestra que 6 pods subieron y 96 (de las 100 replicas) no
+$ kubectl describe pod apache-deploy-859975bbb6-sww5x --> hacemos un describe de uno de los pods que subió
+Name:                 apache-deploy-859975bbb6-sww5x
+Namespace:            default
+Priority:             50
+Priority Class Name:  desarrollo
+
+Que pasa si ahora lanzo pods con mayor prioridad? como en la politica he colocado que los eche, en teoria alguno de los pods que tenemos arriba van a ser sustituidos
+primero listamos los pods que estan corriendo actualmente:
+$ kubectl get pods --field-selector status.phase=Running
+NAME                             READY   STATUS    RESTARTS   AGE
+apache-deploy-859975bbb6-2tghx   1/1     Running   0          10m
+apache-deploy-859975bbb6-8krsz   1/1     Running   0          10m
+apache-deploy-859975bbb6-b9pzk   1/1     Running   0          10m
+apache-deploy-859975bbb6-chfmj   1/1     Running   0          10m
+apache-deploy-859975bbb6-lsj65   1/1     Running   0          10m
+apache-deploy-859975bbb6-sww5x   1/1     Running   0          10m
+
+vamos a usar el fichero alta.yaml
+al hacer apply y luego un get deploy nos muestra la siguiente info:
+$ kubectl get deploy
+NAME            READY   UP-TO-DATE   AVAILABLE   AGE
+apache-deploy   1/100   100          1           18m --> el deploy Low
+apache-prod     5/5     5            5           14s --> el deploy Alta
+Lo que sucedio fue que al tener mucha mas prioridad el deploy Alta que el Low, y encontrar que no habia espacio en los nodos para subir sus pods, sacó 5 de los 6 pods que tenia arriba
+el deploy low y solo dejo 1 arriba (lo maximo que se podia eran 6 pods) y subio sus 5 pods. al hacerle un describe a uno de los pods:
+
+$ kubectl describe pod apache-prod-657c84485c-7v26k
+Name:                 apache-prod-657c84485c-7v26k
+Namespace:            default
+Priority:             100
+Priority Class Name:  produccion
+
+NOTA IMPORTANTE: cuando usamos la politica de prioridad preemptionPolicy: PreemptLowerPriority, estamos obligando a sacar a los pods que existen para darle paso a los pods nuevos con 
+mayor prioridad, si en los nodos ya no hay espacio. Pero, cuando se coloca preemptionPolicy: None, no saca a los nodos, pero los que tienen mayor prioridad se quedan "encolados" de 
+primeros y esperando a que haya espacio para desplegarse.
+
+### Trabajar con multiples quotas.
+primero, hemos borrado los deployments y quotas para tener todo en 0, menos las prioridades ya que las vamos a utilizar (si las borramos volemos a la seccion anterior y las desplegamos)
+Puedo acoplar determinados pods y deployments a distintas quotas, de forma que algunos puedan asumir mas que otras dentro de ese ns dependiendo de la quota a la que se haya asignado.
+vamos a trabajar en el ns dev1: 
+$ kubectl config set-context --current --namespace=dev1
+fichero Resource2.yaml, apply --> se crean las 2 quotas
+$ kubectl get quota
+NAME           AGE   REQUEST                                                    LIMIT
+pods-grandes   11s   pods: 0/5, requests.cpu: 0/100, requests.memory: 0/500Mi   limits.cpu: 0/500, limits.memory: 0/1Gi
+pods-peques    11s   pods: 0/10, requests.cpu: 0/50, requests.memory: 0/100Mi   limits.cpu: 0/100, limits.memory: 0/200Mi
+
+$ kubectl describe ns dev1
+Resource Quotas
+  Name:            pods-grandes
+  Resource         Used  Hard
+  --------         ---   ---
+  limits.cpu       0     500
+  limits.memory    0     1Gi
+  pods             0     5
+  requests.cpu     0     100
+  requests.memory  0     500Mi
+  Name:            pods-peques
+  Resource         Used  Hard
+  --------         ---   ---
+  limits.cpu       0     100
+  limits.memory    0     200Mi
+  pods             0     10
+  requests.cpu     0     50
+  requests.memory  0     100Mi
+
+para asignar los pods y que vayan a para a una quota u a otra, primero confirmamos que las prioridades desarrollo y produccion esten arriba:
+$ kubectl get pc
+NAME                      VALUE        GLOBAL-DEFAULT   AGE
+desarrollo                50           false            3s
+produccion                100          false            3s
+system-cluster-critical   2000000000   false            29d
+system-node-critical      2000001000   false            29d
+
+Si tengo que crear un pod que no cumpla con esas prioridades me va a arrojar un error.
+usaremos fichero nginx-prioridad-produccion.yaml y lo aplicamos.
+$ kubectl get quota
+NAME           AGE     REQUEST                                                          LIMIT
+pods-grandes   5m39s   pods: 1/5, requests.cpu: 500m/100, requests.memory: 10Mi/500Mi   limits.cpu: 1/500, limits.memory: 100Mi/1Gi
+
+$ kubectl describe pod nginx
+Name:                 nginx
+Namespace:            dev1
+Priority:             100
+Priority Class Name:  produccion
+
+ahora lanzamos el otro fichero nginx-prioridad-desarrollo.yaml y vemos que debe irse por la otra quota. apply
+verificamos todo:
+$ kubectl get quota
+NAME           AGE     REQUEST                                                          LIMIT
+pods-grandes   8m18s   pods: 1/5, requests.cpu: 500m/100, requests.memory: 10Mi/500Mi   limits.cpu: 1/500, limits.memory: 100Mi/1Gi
+pods-peques    8m18s   pods: 1/10, requests.cpu: 500m/50, requests.memory: 10Mi/100Mi   limits.cpu: 1/100, limits.memory: 100Mi/200Mi
+
+$ kubectl describe pod nginx1                     
+Name:                 nginx1
+Namespace:            dev1
+Priority:             50
+Priority Class Name:  desarrollo
+
+Esto nos ayuda un monton por ejemplo, si tenemos cosas productivas, pueden ir sus pods a produccion y tener los recursos mas grosos, mientras que si tenemos pods de otros ambientes
+pre-productivos, podemos asignarlos a quotas de desarrollo con recursos mas limitados.
+
+### Ver los recursos de un nodo
+$ kubectl top nodes --> mostrar el uso actual de todos los nodos
+$ kubectl top node <nombre_node> --> mostrar el uso actual de un determinado nodo
+$ kubectl get nodes -o wide --> info muy detallada de los nodos como las ip internas y externas del cluster, SO, Kernel y el container runtime.
+$ kubectl describe node <node_name> --> describe de forma amplia todo lo que pose algo, en este caso un nodo especifico.
+Aqui es muy importante si se esta viendo info de nodo, ver la parte de Capacity y Allocatable, la Capacity es la capacidad total del nodo, Allocatable es la capacidad disponible que
+el nodo en ese momento.
+
+### HugePages
+PAginas grandes.
+Es un recurso que se utiliza en entornos linux. Permiten manejar paginas de memoria mucho mas grandes de lo habitual.
+Los kernel normalmente soportan un estandar de pagina de 4k, con estos recursos de hugepages pueden tener paginas de 2 megas o 1 Gb.
+
+El beneficio de esto va dado de la mano del software que se utiliza como elk, cassandra, oracle que tiene mucha mucha memoria.
+todo depende de las funcionalidades de la aplicacion.
+para configurarla:
+1) primero a nivel de SO
+2) una vez configuradas a nivel de S), se pueden configurar a nivel de pods.
+
+### Autoescalado
+Cree una nota de autoescalado dentro de su dir

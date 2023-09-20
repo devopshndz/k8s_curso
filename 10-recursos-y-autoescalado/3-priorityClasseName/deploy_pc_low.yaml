@@ -1,28 +1,30 @@
+# ejemplo de prioridad, desarrollo.
 apiVersion: apps/v1 # i se Usa apps/v1beta2 para versiones anteriores a 1.9.0
 kind: Deployment
 metadata:
-  name: nginx-d
+  name: apache-deploy
   labels:
     estado: "1"
 spec:
   selector:   #permite seleccionar un conjunto de objetos que cumplan las condicione
     matchLabels:
-      app: nginx
-  replicas: 2 # indica al controlador que ejecute 2 pods
+      app: apache
+  replicas: 100 # indica al controlador que ejecute 2 pods
   template:   # Plantilla que define los containers
     metadata:
       labels:
-        app: nginx
+        app: apache
     spec:
+      priorityClassName: "desarrollo"
       containers:
-      - name: nginx
-        image: nginx:1.7.9
+      - name: apache
+        image: httpd 
         ports:
         - containerPort: 80
         resources:
           limits:
-              memory: "400Mi" # 400 megas x2 
+              memory: "400Mi"
               cpu: "1"
           requests:
-              memory: "256Mi" # 256 megas x2
+              memory: "256Mi" 
               cpu: "0.5"
