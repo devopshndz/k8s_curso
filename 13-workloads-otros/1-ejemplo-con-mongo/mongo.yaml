@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongo
+spec:
+  selector:
+    matchLabels: # las labels del statefulset son las mismas del servicio
+      app: db
+      name: mongodb
+  serviceName: mongodb-svc #Servicio headless previamente creado.
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: db
+        name: mongodb    
+    spec:
+      terminationGracePeriodSeconds: 10  # propiedad de que periodo de gracia antes de terminar. 110 segundos antes de parar todo.
+      containers:
+      - name: mongo
+        image: mongo:3.6        
+        command: 
+          - mongod
+        args: 
+          - --bind_ip=0.0.0.0
+          - --replSet=rs0 #Nombre del replica set. Todos los miembros del cluster usan este nombre
+          - --dbpath=/data/db          
+        livenessProbe:
+            exec:
+              command:
+                - mongo
+                - --eval
+                - "db.adminCommand('ping')"
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - name: mongo-storage
+          mountPath: /data/db    
+  volumeClaimTemplates: # manera de generar de forma dinamica y automatica los pv y pvc basandonos en una sc.
+    - metadata:
+        name: mongo-storage      
+      spec:
+        storageClassName: estado # nuestra sc
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

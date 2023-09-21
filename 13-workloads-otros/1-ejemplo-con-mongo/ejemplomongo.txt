@@ -1,0 +1,121 @@
+Para este ejemplo crearemos una sc y un servicio mongo que desplegaremos con statefulset.
+mongo es una base de datos nosql.
+--- 1) tener creada una storageClass para crear de forma dinamica los pv.
+vamos a utilizar la default de minikube:
+$ kubectl get sc
+kubectl get sc
+NAME                 PROVISIONER                RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+standard (default)   k8s.io/minikube-hostpath   Delete          Immediate           false                  22h <-- vamos a utilizar
+
+usamos sc-mongo.yaml para crear la clase:
+$ kubectl get sc
+NAME                 PROVISIONER                RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+estado               k8s.io/minikube-hostpath   Delete          Immediate           false                  8s
+
+--- 2) creamos el servicio antes de los pods: servicio-mongo.yaml
+tener en cuenta siempre que el clusterIp: None, para que se identifique de tipo HeadLess.
+apply
+$ kubectl get svc
+NAME          TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)     AGE
+kubernetes    ClusterIP   10.96.0.1    <none>        443/TCP     23h
+mongodb-svc   ClusterIP   None         <none>        27017/TCP   4s
+
+--- 3) creado la sc y el service, vamos a crear el statefulset. mongo.yaml
+apply
+$ kubectl get pods
+NAME      READY   STATUS              RESTARTS   AGE
+mongo-0   1/1     Running             0          48s
+mongo-1   0/1     ContainerCreating   0          19s
+va a ir creando uno a uno los pods. para ver mejor este proceso se recomienda tener abierta el dashborad o cualquier dashboard e irnos a la parte de statefulset y ver el comportamiento.
+
+$ kubectl get pods
+NAME      READY   STATUS    RESTARTS   AGE
+mongo-0   1/1     Running   0          2m50s
+mongo-1   1/1     Running   0          2m21s
+mongo-2   1/1     Running   0          103s
+
+$ kubectl get statefulset
+NAME    READY   AGE
+mongo   3/3     3m16s
+
+# kubectl get pvc
+NAME                    STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+mongo-storage-mongo-0   Bound    pvc-28774cdc-9be6-4f99-831b-8b8661c978fa   1Gi        RWO            estado         3m51s
+mongo-storage-mongo-1   Bound    pvc-199933a4-a340-40f2-8ad6-e984a5644dff   1Gi        RWO            estado         3m22s
+mongo-storage-mongo-2   Bound    pvc-5c9a2494-a824-4ee3-9508-fc30aa0291ea   1Gi        RWO            estado         2m44s
+
+$ kubectl get pv 
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                           STORAGECLASS   REASON   AGE
+pvc-199933a4-a340-40f2-8ad6-e984a5644dff   1Gi        RWO            Delete           Bound    default/mongo-storage-mongo-1   estado                  3m34s
+pvc-28774cdc-9be6-4f99-831b-8b8661c978fa   1Gi        RWO            Delete           Bound    default/mongo-storage-mongo-0   estado                  4m2s
+pvc-5c9a2494-a824-4ee3-9508-fc30aa0291ea   1Gi        RWO            Delete           Bound    default/mongo-storage-mongo-2   estado                  2m55s
+
+--- 4) arrancar la replica para que los pods funcionen bien (buena practica es usar un dockerfile para crear el statefulset)
+Arrancar la replica para que los 3 pods funcionen de manera sicnronizada.
+usamos el fichero replica.txt para copiar el comando que de ahí y lanzarlo.
+copiamos el comando:
+rs.initiate({_id: "rs0", version: 1, members: [{ _id: 0, host :"mongo-0.mongodb-svc:27017" },{ _id: 1, host: "mongo-1.mongodb-svc:27017" }, { _id: 2, host: "mongo-2.mongodb-svc:27017" } ]});
+
+y entramos a al primer pod:
+$ kubectl exec -it mongo-0 -- bash
+# mongo
+> rs.initiate({_id: "rs0", version: 1, members: [{ _id: 0, host :"mongo-0.mongodb-svc:27017" },{ _id: 1, host: "mongo-1.mongodb-svc:27017" }, { _id: 2, host: "mongo-2.mongodb-svc:27017" } ]});
+la salida:
+{
+    "ok" : 1,
+    "operationTime" : Timestamp(1695329175, 1),
+    "$clusterTime" : {
+            "clusterTime" : Timestamp(1695329175, 1),
+            "signature" : {
+                    "hash" : BinData(0,"AAAAAAAAAAAAAAAAAAAAAAAAAAA="),
+                    "keyId" : NumberLong(0)
+            }
+    }
+}
+todo ok.
+
+en toeria con esto ya yo puedo usar mongo de manera automatica.
+todo lo que yo haga en un pod si que se va a replicar en todos los nodos. es el software el que hace esto (mongo)
+salimos del pod y vamos a lanzar el mongo-client.yaml.
+apply
+$ kubectl get pods  
+NAME                             READY   STATUS    RESTARTS   AGE
+mongo-0                          1/1     Running   0          16m
+mongo-1                          1/1     Running   0          16m
+mongo-2                          1/1     Running   0          15m
+mongo-express-6758cb6557-5p86p   1/1     Running   0          3m32s
+
+$ kubectl get svc
+NAME                TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+kubernetes          ClusterIP   10.96.0.1        <none>        443/TCP        23h
+mongo-express-svc   NodePort    10.105.162.162   <none>        80:31060/TCP   8s
+mongodb-svc         ClusterIP   None             <none>        27017/TCP      21m
+
+entramos a ver la app web del client:
+$ minikube service mongo-express-svc --url
+y listo ya tenemos la app web arriba con admin config y local
+
+--- 5) escalar pods en statefull set
+$ kubectl scale statefulset mongo --replicas=4 --> hacemos un escalamiento al statefulset mongo con 4 replicas (tiene 3)
+$ kubectl get pods                            
+NAME                             READY   STATUS    RESTARTS   AGE
+mongo-0                          1/1     Running   0          38m
+mongo-1                          1/1     Running   0          38m
+mongo-2                          1/1     Running   0          37m
+mongo-3                          1/1     Running   0          112s
+mongo-express-6758cb6557-5p86p   1/1     Running   0          25m
+
+y asi, va subiendo de forma secuencial, y si desescalamos, va a ir quitando el ultimo
+
+$ kubectl scale statefulset mongo --replicas=3
+statefulset.apps/mongo scaled
+albertohernandez@Albertohernandez 1-ejemplo-con-mongo % kubectl get pods                            
+NAME                             READY   STATUS    RESTARTS   AGE
+mongo-0                          1/1     Running   0          39m
+mongo-1                          1/1     Running   0          38m
+mongo-2                          1/1     Running   0          38m
+mongo-express-6758cb6557-5p86p   1/1     Running   0          26m
+
+Que pasa cuando se destruye un pod sin querer? recordemos que en un deployment, el pod desaparecido se borra completamente y creaba uno nuevo.
+$ kubectl delete pod mongo-1
+la mejor forma de ver esto es en el dashboard jajajaja pero si, el borra el  mongo-1 pero lo vuelve a crear tal cual estaba con su estado, eso es lo poderoso de statefulset. 

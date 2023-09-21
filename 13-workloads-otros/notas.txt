@@ -1,0 +1,44 @@
+### Otros workloads
+Otras cargas de trabajo que se pueden utilizar para lanzar pods.
+- statefulsets: mantienen el estado
+
+- jobs
+- cronjobs
+
+Hasta el momento hemos trabajado con los deployments.
+Estos son si estado (stateless) y cuenta con replicasets que estan asociados a los deployments.
+
+statefulsets: son lo contrario a deployments puesto que mantienen el estado. Son la mejor opcion para trabajar por ejemplo con bases de datos.
+
+Daemonsets: utiles para entornos de tipo log o minitorizacion
+
+job y cronjobs: Pods que se lanzan de forma planificada en determinados momentos. Por ejemplo un Backup.
+
+Custom Resource: creados de forma personalizada
+
+### Statefulset
+Los StatefulSets sirven para gestionar aplicaciones con estado o Stateful.
+Estas aplicaciones básicamente deben almacenar datos y ocuparse de que se guarden y se gestionen  correctamente.
+Por ejemplo todas las bases de datos como mysql ,Oracle ,PostgreSQL, etc son ejemplos claros de aplicaciones con estado.
+
+En los deployments se crean nombres aleatorios. tambien cuando elimino un pod, se crea uno nuevo. Si bajamos las replicas, se elimina cualquiera de los pods.
+Pero en los statefulsets, se le asignan un nombre (identidad) unica a cada uno de estos despliegues. Se van incrementando de forma secuencial, crecen y decrecen en con un orden en concreto.
+No son intercambiables, si se borra uno de ellos, se vuelve a recacrear con el estado de él. Si bajamos el numero de replicas, siempre comienza por el ultimo.
+los statefulsets se denominan servicios HeadLess, tienen un ip que recibe, y a partir de ahi se lanza todo. custerIp:None
+
+Los pods de este tipo no comparten datos. Cada uno de estos pods manejan su propio volumen persistente. pv y pvc, completamente independiente. Se utiliza una plantilla y cada que se cree 
+un nuevo pod, se va a crear un pv y pvc a partir de esa plantilla.
+
+Ejemplo: en el caso de una DB, tendremos un Master Pod y el resto seran pods esclavos. el master sera W/R mientras los esclavos seran solo R.
+cada uno de estos pods tienen su pv y pvc.
+Las peticiones no se balancean en el statefulset y llegan solamente al Master Pod. El resto de nodos esclavon van a hacer es una replica secuencial, el pod1 un replica del master, el pod2
+una replica del pod1 y asi. cada pod tendra su propio almacenamiento en el nodo correspondiente, uno de ellos recibira las peticiones y el resto se tendran que sincronizar o replicar.
+Con los statefulset la parte de la replicacion o sincronizacion se tiene que encargar es el software que hay por dentro.
+Para entender esot se debe saber que cuando se crea por ejemplo la db del Master Pod, primero se crea el pod y las replicas, pero como esto es secuencia, el pod1 toma la replica del 
+Master, y el pod2 del pod1, cuando en el Pod Master se crea la db, eso no se va a replicar en el pod1 ni en el pod2.
+Tiene que ser el propio software que haya dentro el que haga la replicacion. 
+Cuando yo despliego una aplicacion en un statefulset debo saber que cuando se terminen de crear los pods, se debe empezar la sencronizacion. el software dentro de los pods es el encargado
+de la replicacion no k8s.
+
+los pv se crean a partir de una StorageClass y de un columeClaimTemplete. de esta manera son unicos para cada POD. 
+Si yo escalo, amplio un statefulset, siempre se amplia desde el ultimo pod creado.

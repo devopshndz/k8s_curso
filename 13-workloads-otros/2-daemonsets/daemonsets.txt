@@ -1,0 +1,33 @@
+### Daemonsets
+Cuando yo lanzo un Daemonset genera 1 pod en cada nodo del cluster. si tengo 5 nodos, en cada uno de los nodos se va a lanzar 1 pod.
+Suelen ser utiles para procesos que debo ejecutar en cada nodo, por ejemplo: un backup, monitoreo, logs de cada nodo.
+
+vamos a usar daemonset-logstash.yaml
+es un producto para logs.
+como estamos trabajando en cluster1 veremos que tenemos 3 nodos:
+$ kubectl get nodes
+NAME           STATUS   ROLES           AGE   VERSION
+cluster1       Ready    control-plane   24h   v1.27.3
+cluster1-m02   Ready    <none>          8h    v1.27.3
+cluster1-m03   Ready    <none>          8h    v1.27.3
+
+apply.
+$ kubectl get pods
+NAME                  READY   STATUS    RESTARTS   AGE
+log-daemonset-76nz6   1/1     Running   0          4m58s
+log-daemonset-n4pkl   1/1     Running   0          4m58s
+log-daemonset-v5k69   1/1     Running   0          4m58s
+
+todo ok, el daemonset a agregado un pod a cada nodo.
+Si creo otro nodo:
+$ minikube node add -p cluster1 
+al crearse este nodo se va a agregar automaticamente un pod gracias al daemonset, esto lo hace de manera automatica.
+no lo voy a ahcer porque me da hueva.
+
+$ kubectl get daemonsets
+NAME            DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
+log-daemonset   3         3         3       3            3           <none>          16m
+
+borramos el daemonset 
+$ kubectl delete daemonset log-daemonset
+y ya no tenemos pods.
