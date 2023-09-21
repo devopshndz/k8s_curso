@@ -40,7 +40,7 @@ para este ejemplo tambien vamos a utilizar un pod de forma interactivo para que 
 primero:
 $ watch kubectl get hpa --> en una terminal aparte vamois a abrir este watch para ver en tiempo real en comportamiento del autoscale que hemos creado que esta adjuntado al servicio apache.
 a parte tambien tendremos el dashboard de minikube para ver en graficamente el comportamiento del pod apache.
-$ kubectl run -i -tty carga --rm --image=busybox:1.28 --restart=Never -- /vin/sh -c "while sleep 0.01; do wget -q -0- http://apache; done"
+$ kubectl run -i --tty carga --rm --image=busybox:1.28 --restart=Never -- /vin/sh -c "while sleep 0.01; do wget -q -0- http://apache; done"
 al lanzar el comando empezaran las peticiones.
 
 Nota: no he podido hacer la practica ya que el comandop de las peticiones no funciona en Mac.

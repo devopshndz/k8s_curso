@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: postgres-db1
+spec:
+      containers:
+      - image: postgres:11
+        name: postgres-db1
+        ports:
+        - containerPort: 5432
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data # dentro del container postgres-db1 vamos a tener un directorio como este 
+          name: postgres-db-volume1 # y que tiene asociado ese directorio el volumen postgres-db-volume1
+        env:
+         - name: POSTGRES_PASSWORD
+           value: "secret"
+         - name: POSTGRES_USER
+           value: "odoo"
+         - name: POSTGRES_DB
+           value: "postgres"
+      volumes:
+      - name: postgres-db-volume1 # declaracion del volumen que está a nivel container
+        persistentVolumeClaim: # vamos autilizar un pcv (el nuestro)
+           claimName: pvc-bbdd # nuestro pvc-bbdd

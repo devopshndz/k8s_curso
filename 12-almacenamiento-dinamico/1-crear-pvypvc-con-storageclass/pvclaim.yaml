@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-bbdd
+spec:
+  storageClassName: bbdd # la clase, cuando reclame un espacio va a reclamar un espacio que requiera a esta clase, y vamos a encontrarnos a 2 posibilidades gracias a los pv que creamos.
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi # esto es clave e importante. recordemos que en un pv teniamos 10Gi y en otro 3Gi. al colocar aqui 2Gi, el va a buscar el pv que mejor se adapte, mas cercano (3Gi)

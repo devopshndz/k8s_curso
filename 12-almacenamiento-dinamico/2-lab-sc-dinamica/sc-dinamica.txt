@@ -1,0 +1,41 @@
+### clases de almacenamiento.
+almacenamiento dinamico en k8s:
+Cuando yo solicito un recurso de almacenamiento k8s va a buscar el mas adecuado dentro de las clases de almacenamiento a la que pertenece este objeto.
+
+para este ejemplo vamos a utilizar:
+sc-dinamica.yaml, pv.yaml, pvclaim.yaml y pod-pvc.yaml
+1) la clase dinamica.
+apply.
+$ kubectl get sc
+NAME                 PROVISIONER                    RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+bbdd                 kubernetes.io/no-provisioner   Delete          WaitForFirstConsumer   false                  171m
+sc-discos-locales    kubernetes.io/no-provisioner   Delete          Immediate              false                  7s    <------
+
+2) el pv.yaml, en el fichero se crearán 3 pv.
+todos pertenecen a la misma clase sc-discos-locales, pero tienen diferentes capacidades.
+apply.
+$ kubectl get pv
+NAME           CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM              STORAGECLASS        REASON   AGE
+pv-bbdd-vol1   10Gi       RWO            Retain           Available                      bbdd                         158m
+pv-bbdd-vol2   2Gi        RWO            Retain           Bound       default/pvc-bbdd   bbdd                         156m
+volume1        4Gi        RWO            Retain           Available                      sc-discos-locales            6s            -->
+volume2        1Gi        RWO            Retain           Available                      sc-discos-locales            6s            -->
+volume3        6Gi        RWO            Retain           Available                      sc-discos-locales            6s            -->
+
+Se crearon los 3 pero no han tenido aun su claim.
+
+3) el pvcclaim.yaml va a reclamar solo 1 de los 3 pv creados.
+apply
+$ kubectl get pvc
+NAME           STATUS   VOLUME         CAPACITY   ACCESS MODES   STORAGECLASS        AGE
+pvc-bbdd       Bound    pv-bbdd-vol2   2Gi        RWO            bbdd                147m
+pvc-dinamico   Bound    volume1        4Gi        RWO            sc-discos-locales   8s     --> adjuntado al volumen1
+
+si hacemos un describe vemos que se a adjuntado al volumen1
+$ kubectl describe pvc pvc-dinamico
+Name:          pvc-dinamico
+Namespace:     default
+StorageClass:  sc-discos-locales
+Status:        Bound
+Volume:        volume1
+

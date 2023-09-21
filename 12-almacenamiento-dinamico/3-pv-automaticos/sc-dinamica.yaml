@@ -1,0 +1,7 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+   name: sc-dinamica
+provisioner: k8s.io/minikube-hostpath # provisioner local de minikube que permite crear un directorio local en alguno de los nodos. en el nodo que sera reclamado creara un pv.
+volumeBindingMode: Immediate # se adjuntará inmmediato.
+reclaimPolicy: Delete

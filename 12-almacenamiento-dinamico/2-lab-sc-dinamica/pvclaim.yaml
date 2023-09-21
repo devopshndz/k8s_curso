@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-dinamico # nombre del pvc
+spec:
+  storageClassName: sc-discos-locales # la clase adjuntada.
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi # esta reclamando 3Gi de almacenamiento nada mas.

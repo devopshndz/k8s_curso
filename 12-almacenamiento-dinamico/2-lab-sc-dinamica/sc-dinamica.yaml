@@ -1,0 +1,7 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+   name: sc-discos-locales # nombre 
+provisioner: kubernetes.io/no-provisioner # para trabajar local
+volumeBindingMode: Immediate # trabajaremos con el volume de forma Immediate no WaitForFirstConsumer. con Immediate, hacemos que se adjunte de fomra inmediata al volumen.
+reclaimPolicy: Delete

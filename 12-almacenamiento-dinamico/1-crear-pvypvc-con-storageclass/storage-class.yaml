@@ -1,0 +1,9 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  annotations:
+    description: Esto es un ejemplo de Storage Class
+  name: bbdd # importante el nombre
+provisioner: kubernetes.io/no-provisioner # este provisioner depende el proveedor que vamos a utilizar.
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer # trabajar en local

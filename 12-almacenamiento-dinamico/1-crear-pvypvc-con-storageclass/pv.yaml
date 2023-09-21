@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-bbdd-vol1
+spec:
+  storageClassName: bbdd # debe coincidir con el nombre de la storageClass
+  capacity:
+    storage: 10Gi # almacenamiento de 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/tmp/bbdd-vol1" # hostPath

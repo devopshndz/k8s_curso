@@ -1,0 +1,8 @@
+###Almacenamiento dinamico y storageClass
+
+Una clase de Almacenamiento es dinamica cuando defines una clase y defines su proveedor (plugin) de amazon, gcp, azure, local, etc.
+una vez que yo defino el proveedor defino una clase sobre ese tipo. Luego, todos los volumenes que yo asocie a esa clase, estan asociados a ese tipo de almacenamiento.
+cuando un Claim reclame un espacio (clase: discoslentos) ejemplo discoslentos, va a ser el propio k8s el que a traves de un metodo dinamico, va a ver cual de los volumenes persistentes
+de esa clase se adapta mejor a la peticion que se hace. No se asigna un pv concreto sino que se enlaza a la clase y k8s hace todo por nosotros de forma logica. \
+un storageClass es un objeto global , lo defino por fuera de pv y pvc.
+

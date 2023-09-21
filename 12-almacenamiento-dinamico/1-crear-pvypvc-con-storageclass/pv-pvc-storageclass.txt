@@ -1,0 +1,62 @@
+# ejemplo en orden
+en este ejemplo trabajaremos en el cluster1
+1) creamos una storageClass con el fichero storage-class.yaml
+apply
+revisamos:
+$ kubectl get sc --> obtenemos la lista de storageClass
+NAME                 PROVISIONER                    RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+bbdd                 kubernetes.io/no-provisioner   Delete          WaitForFirstConsumer   false                  8s
+
+2) una vez creada la storageClass, vamos a crear el pv y pvc.
+iniciamos pv.yaml.
+apply
+$ kubectl get pv
+NAME           CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   REASON   AGE
+pv-bbdd-vol1   10Gi       RWO            Retain           Available           bbdd                    10s
+
+listo, el pv creado pero aun no está reclamado por nadie.
+vamos a lanzar un 2do pv llamado pv1.yaml
+apply y revisamos:
+$ kubectl get pv
+NAME           CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   REASON   AGE
+pv-bbdd-vol1   10Gi       RWO            Retain           Available           bbdd                    2m32s --> el (pv.yaml)
+pv-bbdd-vol2   2Gi        RWO            Retain           Available           bbdd                    13s   --> el (pv1.yaml)
+
+creados pero no reclamados.
+
+3) pvc.yaml, apply y revisamos.
+$ kubectl get pvc
+NAME       STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+pvc-bbdd   Pending  
+
+y ojito, el pvc esta pending. Cuando está el pvc ligado a una storageClass con la propiedad provisioner: kubernetes.io/no-provisioner su caracteristica principal que hemos colocado es
+volumeBindingMode: WaitForFirstConsumer, esto que quiere decir? este pvc no se va a unir (Bound) con un volumen hasta que no obtenga el primer consumidor (pod).
+En otras palabras, debemos crear el pod que vaya ligado al volumen, y dinamicamente el pod irá a parar a uno de los 2 pv creados.
+
+4) aprovisionamos el pod. sera un pod de una db postgres.
+postgres.yaml
+apply y revisar.
+$ kubectl get pods
+NAME           READY   STATUS              RESTARTS   AGE
+postgres-db1   0/1     ContainerCreating   0          4s
+
+$ kubectl get pv  
+NAME           CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM              STORAGECLASS   REASON   AGE
+pv-bbdd-vol1   10Gi       RWO            Retain           Available                      bbdd                    34m
+pv-bbdd-vol2   2Gi        RWO            Retain           Bound       default/pvc-bbdd   bbdd                    32m --> ya tiene una reclamacion.
+Selecciona el 2 porque es el que mejor se adapta a la peticion nuestra (3Gi)
+
+$ kubectl get pvc
+NAME       STATUS   VOLUME         CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+pvc-bbdd   Bound    pv-bbdd-vol2   2Gi        RWO            bbdd           20m <-- ya reclamó el pv-bbdd-vol2 por ser el que mejor se adapta a la petición.
+
+si hacemos un describe del pvc:
+$ kubectl describe pvc pvc-bbdd 
+Used By:       postgres-db1 <<<<<<<<<
+Events:
+  Type    Reason                Age                  From                         Message
+  ----    ------                ----                 ----                         -------
+  Normal  WaitForFirstConsumer  6m4s (x62 over 21m)  persistentvolume-controller  waiting for first consumer to be created before binding
+
+  ya lo que queda es conectarnos a la maquina y validar que haya la conexion y la db.
+  finaliza la practica.

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-dinamico
+spec:
+  storageClassName: sc-dinamica # adjuntamos a la clase creada
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi # 3Gi de almacenamiento

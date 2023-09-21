@@ -1,0 +1,52 @@
+#### crear pv automaticos
+Como con una clase de almacenamiento yo puedo hacer que k8s de forma automatica, reclame y genere un nuevo pv de forma automatica. 
+Los drivers CSI y los normales de k8s, algunos tienen la capacidad de crear de forma automatica y dinamica los pv siempre y cuando el provider lo soporte
+NOTA: Remitirse a la documentacion para saber que providers poseen esta caracteristica
+
+Para generar estos pv automaticos: sc-dinamica.yaml, pvclaim.yaml, deploy_nginx.yaml.
+1) sc-dinamica.yaml. apply
+$ kubectl get sc
+NAME                 PROVISIONER                RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+sc-dinamica          k8s.io/minikube-hostpath   Delete          Immediate           false                  6s
+
+Ahora no es necesario hacer el pv porque con el provider k8s.io/minikube-hostpath de la sc, se crea automaticamente un pv en unop de los nodos:
+
+2) vamos por el pvclaim.yaml, apply
+al aplicar el pvc, automaticamente crea un pv el cual se conectara con este pvc y quedara enlazado mediante la sc creada.
+$ kubectl get pvc
+NAME           STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+pvc-dinamico   Bound    pvc-7897f36f-1076-47ad-a4cd-4ff59e37311c   3Gi        RWO            sc-dinamica    15s
+$ kubectl get pv 
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                  STORAGECLASS   REASON   AGE
+pvc-7897f36f-1076-47ad-a4cd-4ff59e37311c   3Gi        RWO            Delete           Bound    default/pvc-dinamico   sc-dinamica             26s
+
+si hacemos un describe del pv creado automaticamente:
+$ kubectl describe pv pvc-7897f36f-1076-47ad-a4cd-4ff59e37311c
+Name:            pvc-7897f36f-1076-47ad-a4cd-4ff59e37311c
+Labels:          <none>
+Annotations:     hostPathProvisionerIdentity: 22243a68-362c-445a-9ff1-6ca9e3c80b9e
+                 pv.kubernetes.io/provisioned-by: k8s.io/minikube-hostpath
+Finalizers:      [kubernetes.io/pv-protection]
+StorageClass:    sc-dinamica
+Status:          Bound
+Claim:           default/pvc-dinamico
+Reclaim Policy:  Delete
+Access Modes:    RWO
+VolumeMode:      Filesystem
+Capacity:        3Gi
+
+4) deploy del pod de nginx.
+apply
+$ kubectl get pods
+NAME                      READY   STATUS    RESTARTS   AGE
+nginx-d-8dbbfd5c6-dzmjc   1/1     Running   0          19s
+nginx-d-8dbbfd5c6-wp4s6   1/1     Running   0          19s
+
+si hacemos un describe del pvc pvc-dinamico:
+$ kubectl describe pvc pvc-dinamico
+VolumeMode:    Filesystem
+Used By:       nginx-d-8dbbfd5c6-dzmjc 
+               nginx-d-8dbbfd5c6-wp4s6
+
+Estan nuestros 2 pods de nginx adjuntos.
+

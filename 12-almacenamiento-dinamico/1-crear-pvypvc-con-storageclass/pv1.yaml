@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-bbdd-vol2
+spec:
+  storageClassName: bbdd # misma storageClass
+  capacity:
+    storage: 2Gi # capacidad mas pequeña de 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/tmp/bbdd-vol2" # hosstPath apuntando a otro directori
