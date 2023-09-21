@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pv-pod
+spec:
+  volumes: # a nivel del spec
+    - name: pv-storage
+      persistentVolumeClaim:
+        claimName: pv-claim # el nombre del pvc que he creado anteriormente, tenerlo muy claro. este llamara al pv-volume y al directorio de la maquina.
+  containers:
+    - name: task-pv-container
+      image: nginx
+      ports:
+        - containerPort: 80
+          name: "http-server"
+      volumeMounts: # al nivel del container
+        - mountPath: "/var/www/html/" # esto no lo entendi
+          name: pv-storage

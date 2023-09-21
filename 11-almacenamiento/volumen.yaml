@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: volumenes
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    volumeMounts: # montajes de volumen
+    - mountPath: /Alberto # directorio que montaremos
+      name: alberto # nombre del directorio
+    # - mountPath: /git
+    #   name: git
+    #   readOnly: true # solo lectura de git.
+    - mountPath: /temp
+      name: temp
+  volumes: # debemos mapear en volumes como se especifican fisicamente.
+  - name: alberto
+    hostPath:
+      path: /Users/albertohernandez/Alberto/kubernetes/datos # el home que creamos en volumeMounts se va a ver asi fisicamente en la maquina
+  # - name: git
+  #   gitRepo: # al ser gitRepo, debemos pasar el repositorio el cual se va a clonar y utilizar.
+  #     repository: https://github.com/apasoftTraining/cursoKubernetes.git
+  - name: temp
+    emptyDir: {} # forma de decir que es un volumen temporal porque este si se va aeliminar por ser temporal.

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: PersistentVolume # tipo persistent volume. no hay un comando iperativo para crear un persiste volume. hay que crearlo si o si desde un fichero yaml.
+metadata:
+  name: pv-volume # nombre
+  labels:
+    type: local
+    curso: kubernetes
+spec:
+  storageClassName: sistemaficheros # este nombre es muy muy importante ya que este debe coincidir con el del pvc. Tambien, no hace falta crear la clase para relacionar. Se relaciona automaticamente solo deben coincidir.
+  capacity:
+    storage: 10Gi # tamaño 
+  accessModes:
+    - ReadWriteOnce
+  hostPath: # tipo de drivar que vamos a utilizar. hostPath crea un directorio en mi maquina local donde voy a trabajar.
+    path: "/mnt/data" # en el servidor donde vaya a parar el pod, va a reclamar el espacio y en ese sitio es donde vamos a tener el /mnt/data
+    # este hostPath jamas se debe utilizar en produccion porque si se utilizan varias maquinas, cada una tendra su /mnt/data los ficheros estaran totalmente desperdigados.
+    # hostPath esta bien para pruebas

@@ -1,0 +1,119 @@
+### Almacenamiento en k8s
+Es efimero. Se borra todo si no se vuelve persistente.
+El volumen permite persistencia en k8s. El almacenamiento con volumen no se elimina, siempre va a seguir utilizando, es la forma de guardar estados.
+
+CSI Container Storage Interface. Extension de k8s que simplifica la gestion de almacenamiento. Es un estandard que permite exponer almacenamiento de todo tipo a los workloads de k8s.
+
+### Crea volumens.
+Se usan 2 clausulas para implementar almacenamiento dentro de un pod:
+1) una para indicar donde montarlos dentro del pod
+2) una para indicar los volumenes que vamos a utilizar.
+Siempre ver la documentacion de volumenes de kubernetes. Hay muchos ejemplos.
+para tener en cuenta: volumeMounts: pertenece al Container, mientras qeu columes: pertenece al Pod. cuando se este configuranco tener en cuenta.
+
+# local
+crear un pod con una serie de volumens y como acceder a ellos.
+creamos un directorio /Alberto/kubernetes/datos/ el cual usaremos como volumen para nuestro k8s.
+fichero volumen.yaml, apply
+hemos creado de esta manera un pod con los volumenes adjuntos
+$ kubectl get pods
+me muestra los pods y en teoria la creacion del pod con el volumen. No me lo esta dejando crear con el repositorio git. intentamos sin este.
+$ kubectl get pods
+NAME                      READY   STATUS    RESTARTS   AGE
+apache-84b9ddc7bd-fxcsh   1/1     Running   0          3h11m
+nginx                     1/1     Running   0          5h15m
+nginx1                    1/1     Running   0          5h12m
+volumenes                 1/1     Running   0          87s --> este es
+
+$ kubectl describe pod volumenes
+Mounts:
+      /Alberto from alberto (rw)
+      /temp from temp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-lp8w8 (ro)
+
+Volumes:
+    alberto:
+        Type:          HostPath (bare host directory volume)
+        Path:          /Alberto/kubernetes/datos
+        HostPathType:  
+    temp:
+        Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+        Medium:     
+        SizeLimit:  <unset>
+
+Y asi creamos nuestro pod con volumenes.
+entramos al pod y revisamos todo:
+$ kubectl exec -it volumenes -- bash
+$ ls 
+Alberto  bin  boot  dev  docker-entrypoint.d  docker-entrypoint.sh  etc  home  lib  media  mnt  opt  proc  root  run  sbin  srv  sys  temp  tmp  usr  var
+se nos muestran los directorios Alberto y tmp creados.
+
+### crear cluster con multiples nodos. repaso
+$ minikube start -p cluster1 -n 3 --> creamos un cluster en minikube de nombre cluster1 con 3 nodos.
+para verlo
+$ minikube profile list
+pero para poder utilizarlo debo entrar con el mediante start:
+$ minikube start cluster1
+esto debido a que si entro a minikube, al propio cluster de minikube, no estaria inicializando el cluster1.
+si al hacer el profile list nos muestra que estan running los 2, se puede hacer el cambio de perfil y uso del cluster con
+$ minikube profile <perfil> 
+y con un get nodes nos debe mostrar los nodos del cluster en el que estamos.
+
+### crear persistant volumen (pv)
+para todo el ejemplo vamos a utilizar varios ficheros.
+1) pv.yaml, 2) pvclaim.yaml y 3) pod-pvc.yaml
+apply 1)
+$ kubectl apply -f pv.yaml 
+persistentvolume/pv-volume created
+
+$ kubectl get pv
+NAME        CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS      REASON   AGE
+pv-volume   10Gi       RWO            Retain           Available           sistemaficheros            91s
+Si queremos mas descripcion:
+$ kubectl describe pv pv-volume
+Listo, ya creado el pv, tenemos que crear el pvc, o persitant volume claim, debemos seguir ese orden.
+apply 2)
+$ kubectl apply -f pvclaim.yaml  
+persistentvolumeclaim/pv-claim created
+$ kubectl get pvc
+NAME       STATUS   VOLUME      CAPACITY   ACCESS MODES   STORAGECLASS      AGE
+pv-claim   Bound    pv-volume   10Gi       RWO            sistemaficheros   9s
+
+el status aparece Bound, o sea que ya a sido asiganado ya que a asociado este pvc con el pv de la clase sistemaficheros.
+si hacemos un get pv vemos lo mismo
+$# kubectl get pv 
+NAME        CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM              STORAGECLASS      REASON   AGE
+pv-volume   10Gi       RWO            Retain           Bound    default/pv-claim   sistemaficheros            3h3m
+para tener en cuenta tambien, que nos esta mostrando el namespace en el cual se esta enlazando, default/pv-claim
+los volumenes persistentes son globales, no pertenecen a un ns, pero los pvc si, son reclamados por el ns en el cual se estan generando, por eso aparece aqui en default/pv-claim
+
+y ojito aquí, hasta el momento he creado el volumen persisstete pv y su reclamacion o enlace, pvc, pero no se a creado en el sistema el volumen, esto debido a que al ser un volumen HostPath
+se debe crear el directorio /mnt/data dentro de un pod y una maquina y hasta el momento no hemos lanzado el pod.
+
+### lanzando el pod y verificando todo
+fichero del pod pod-pvc.yaml
+apply
+$ kubectl get pods -o wide
+NAME     READY   STATUS    RESTARTS   AGE   IP           NODE           NOMINATED NODE   READINESS GATES
+pv-pod   1/1     Running   0          27s   10.244.2.3   cluster1-m03   <none>           <none>
+
+si hacemos un describe pod:
+$ kubectl describe pod pv-pod 
+Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-sz9wk (ro)
+      /var/www/html/ from pv-storage (rw) 
+Volumes:
+  pv-storage:
+    Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
+    ClaimName:  pv-claim
+    ReadOnly:   false
+
+Nos conectamos al nodo:
+$ minikube ssh -p cluster1 -n cluster1-m03
+docker@cluster1-m03:~$ cd /mnt/
+docker@cluster1-m03:/mnt$ ls
+data
+docker@cluster1-m03:/mnt$ 
+
+Esto está excelente, en produccion no se debe hacer ya que tu quieres acceder a tuis datos desde cualquier maquina. aca nada mas se puede hacer a la especifica.
+con hostPath solo queremos que funcione en ese solo server.

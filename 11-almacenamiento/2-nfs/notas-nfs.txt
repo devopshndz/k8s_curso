@@ -1,0 +1,4 @@
+### montar NFS
+Montar un entorno mas profesional con NFS
+Los nodos del cluster se conectan todos al mismo almacenamiento.
+Realizar primero la practica de Kubeadm para crear unas maquinas virtuales y realizar la practica.

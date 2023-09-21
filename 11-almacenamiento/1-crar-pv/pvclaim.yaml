@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim # tipo correspondiente
+metadata:
+  name: pv-claim
+spec:
+  storageClassName: sistemaficheros # tiene que coincidir con el pv creado anteriormente, ya que si no coincide no va a encontrar a nadie con quien enlazarce.
+  accessModes:
+    - ReadWriteOnce # igualmente si en el pv colocamos en accessModes este mismo tipo, deben de coincidir
+  resources:
+    requests:
+      storage: 3Gi # aunque yo coloque aquí 3Gi, en realidad voy a tomar los 10Gi del pv, el 3Gi es un valor estimado que debe ser medido antes de enlazar.
